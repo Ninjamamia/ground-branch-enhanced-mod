@@ -1,0 +1,20 @@
+local benchmarkvalidate = {
+}
+
+function benchmarkvalidate:ValidateLevel()
+	-- new feature to help mission editor validate levels
+
+	local ErrorsFound = {}
+
+	local AllBenchmarks = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBBenchmarker')
+
+
+	if #AllBenchmarks == 0 then
+		table.insert(ErrorsFound, "No Benchmark spawns found")
+	end
+
+	return ErrorsFound
+end
+
+
+return benchmarkvalidate

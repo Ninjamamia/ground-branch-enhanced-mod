@@ -1,2 +1,12 @@
 # ignore everything in every directory
 *
+
+# un-ignore specific directories we want to track, start with a slash to get
+# paths relative to the git repository root
+!/GroundBranch
+!/GroundBranch/Content
+!/GroundBranch/Content/GroundBranch/
+!/GroundBranch/Content/GroundBranch/GameMode
+!/GroundBranch/Content/GroundBranch/GameMode/**
+!/GroundBranch/Content/GroundBranch/Lua
+!/GroundBranch/Content/GroundBranch/Lua/**
