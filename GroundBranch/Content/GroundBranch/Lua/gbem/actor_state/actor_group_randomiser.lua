@@ -44,21 +44,21 @@
  ---     explicitly provided.
 ---
 
-local logger                 = require('GBEM.util.class.logger').create('ActorGroupRandomiser')
-local pipe                   = require('GBEM.util.ext.functions').pipe
-local sprintf                = require('GBEM.util.ext.strings').sprintf
-local count                  = require('GBEM.util.ext.tables').count
-local icount                 = require('GBEM.util.ext.tables').icount
-local tableContains          = require('GBEM.util.ext.tables').contains
-local tableEmpty             = require('GBEM.util.ext.tables').isEmpty
-local map                    = require('GBEM.util.ext.tables').map
-local reduce                 = require('GBEM.util.ext.tables').reduce
-local mergeAssoc             = require('GBEM.util.ext.tables').naiveMergeAssocTables
-local shuffleTable           = require('GBEM.util.ext.tables').shuffleTable
-local default                = require('GBEM.util.ext.values').default
-local fif                    = require('GBEM.util.ext.values').fif
+local logger                 = require('gbem.util.class.logger').create('ActorGroupRandomiser')
+local pipe                   = require('gbem.util.ext.functions').pipe
+local sprintf                = require('gbem.util.ext.strings').sprintf
+local count                  = require('gbem.util.ext.tables').count
+local icount                 = require('gbem.util.ext.tables').icount
+local tableContains          = require('gbem.util.ext.tables').contains
+local tableEmpty             = require('gbem.util.ext.tables').isEmpty
+local map                    = require('gbem.util.ext.tables').map
+local reduce                 = require('gbem.util.ext.tables').reduce
+local mergeAssoc             = require('gbem.util.ext.tables').naiveMergeAssocTables
+local shuffleTable           = require('gbem.util.ext.tables').shuffleTable
+local default                = require('gbem.util.ext.values').default
+local fif                    = require('gbem.util.ext.values').fif
 
-local ParamParser            = require('GBEM.util.class.param_parser')
+local ParamParser            = require('gbem.util.class.param_parser')
 
 --- @class ActorGroupRandomiser
  --- @field private _actorStateManager ActorStateManager

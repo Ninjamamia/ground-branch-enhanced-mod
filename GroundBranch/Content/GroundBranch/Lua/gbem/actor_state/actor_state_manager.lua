@@ -1,9 +1,9 @@
-local log                = require('GBEM.util.class.logger').create('ActorStateManager')
-local sprintf            = require('GBEM.util.ext.strings').sprintf
-local tableIsEmpty       = require('GBEM.util.ext.tables').isEmpty
-local tableNotEmpty      = require('GBEM.util.ext.tables').notEmpty
-local count              = require('GBEM.util.ext.tables').count
-local fif                = require('GBEM.util.ext.values').fif
+local log                = require('gbem.util.class.logger').create('ActorStateManager')
+local sprintf            = require('gbem.util.ext.strings').sprintf
+local tableIsEmpty       = require('gbem.util.ext.tables').isEmpty
+local tableNotEmpty      = require('gbem.util.ext.tables').notEmpty
+local count              = require('gbem.util.ext.tables').count
+local fif                = require('gbem.util.ext.values').fif
 
 local _actor = actor
 local actor = nil

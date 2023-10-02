@@ -1,7 +1,7 @@
 -- Trying to keep this file as close as possible to the original game mode
 
-local ActorStateManager = require("GBEM.actor_state.actor_state_manager")
-local ActorGroupRandomiser = require("GBEM.actor_state.actor_group_randomiser")
+local ActorStateManager = require("gbem.actor_state.actor_state_manager")
+local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
 
 local intelretrieval = {
 	UseReadyRoom = true,

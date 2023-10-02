@@ -1,4 +1,4 @@
-local default = require('GBEM.util.ext.values').default
+local default = require('gbem.util.ext.values').default
 
 local Logger = {}
 

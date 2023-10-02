@@ -1,8 +1,8 @@
-local logger        = require("GBEM.util.class.logger").create("ParamParser")
-local sprintf       = require("GBEM.util.ext.strings").sprintf
-local trim          = require("GBEM.util.ext.strings").trim
-local count         = require("GBEM.util.ext.tables").count
-local contains      = require("GBEM.util.ext.tables").contains
+local logger        = require("gbem.util.class.logger").create("ParamParser")
+local sprintf       = require("gbem.util.ext.strings").sprintf
+local trim          = require("gbem.util.ext.strings").trim
+local count         = require("gbem.util.ext.tables").count
+local contains      = require("gbem.util.ext.tables").contains
 
 
 local function debugParams(params)
