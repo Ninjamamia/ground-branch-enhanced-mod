@@ -3,10 +3,16 @@
 local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
 
+local ExfilReveal = { 
+	BeforeRoundStart = 0,
+	OnRoundStart = 1,
+	AfterCollectingIntel = 2,
+}
+
 local intelretrieval = {
 	UseReadyRoom = true,
 	UseRounds = true,
-	StringTables = { "IntelRetrieval" },
+	StringTables = { "gbem/intel_retrieval_enhanced" },
 	
 	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022, (c) Ninjamamia, 2023",
 	GameModeType = "PVE",
@@ -57,7 +63,7 @@ local intelretrieval = {
 			Value = 2,
 			AdvancedSetting = true,
 		},
-				-- 0 = none
+		-- 0 = none
 		-- 1 = one (true location)
 		-- 2 = two
 		-- 3 = half
@@ -70,6 +76,17 @@ local intelretrieval = {
 			AdvancedSetting = true,
 		},
 		-- 1 to make watch display alert if in proximity
+
+		-- When to actually reveal the exfil location on the map
+		-- 0 = before round start
+		-- 1 = on round start
+		-- 2 = after collecting intel
+		ExfilReveal = {
+			Min = 0,
+			Max = 2,
+			Value = 0,
+			AdvancedSetting = true,
+		},
 	},
 	OpForTeamTag = "OpFor",
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
@@ -146,10 +163,10 @@ local intelretrieval = {
 	-- if AI are within this distance (squared) - 30m - then don't add their squad to the bum rush
 	BumRushLeaveSquadsAlone = {},
 	-- these squads should be ignored as they started out near extraction
+
+	actorStateManager = nil, 
+	actorGroupRandomiser =nil,
 }
-
-
-
 
 function intelretrieval:DumbTableCopy(MyTable)
 	local ReturnTable = {}
@@ -373,7 +390,11 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 		end
 		-- watch is set up to create a proximity alert when within <LaptopProximityAlertRadius> m of the laptop
 		
-	--elseif RoundStage == "InProgress" then
+	elseif RoundStage == "InProgress" then
+		-- activate the chosen extract point marker on the map if settings ask for it
+		if self.Settings.ExfilReveal.Value == ExfilReveal.OnRoundStart then
+			actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], true)
+		end
 	--	self:ActivateBumRush()
 	-- 	-- for testing
 		
@@ -387,16 +408,18 @@ end
 function intelretrieval:RandomiseObjectives()
 	-- called to reset and randomise the mission objectives
 
-	-- first, pick a random extraction point
-	
+	-- select a random extract point index
 	self.ExtractionPointIndex = umath.random(#self.ExtractionPoints)
-	-- this is the current extraction point
 
+	-- deactivate all extract points and extract point markers on the map
 	for i = 1, #self.ExtractionPoints do
-		local bActive = (i == self.ExtractionPointIndex)
-		actor.SetActive(self.ExtractionPointMarkers[i], bActive)
+		actor.SetActive(self.ExtractionPointMarkers[i], false)
 		actor.SetActive(self.ExtractionPoints[i], false)
-		-- set extraction marker to active but don't turn on flare yet
+	end
+
+	-- activate the chosen extract point marker on the map if settings ask for it
+	if self.Settings.ExfilReveal.Value == ExfilReveal.BeforeRoundStart then
+		actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], bActive)
 	end
 
 	gamemode.ClearGameObjectives()
@@ -896,6 +919,11 @@ end
 
 function intelretrieval:OnTargetCaptured()
 	-- this is called from the laptop IntelTarget.lua script when a laptop is successfully hacked
+
+	-- activate the chosen extract point marker on the map if settings ask for it
+	if self.Settings.ExfilReveal.Value == ExfilReveal.AfterCollectingIntel then
+		actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], true)
+	end
 
 	actor.SetActive(self.ExtractionPoints[self.ExtractionPointIndex], true)
 	-- turn on the extraction flare

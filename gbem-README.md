@@ -3,26 +3,39 @@
 The goal of this mod is to provide drop in replacements for vanilla game modes, with added
 functionality to bring some more variety and fun to the game.
 
-The only existing replacement game mode provided for now is *intel retrieval*.
+The only existing game mode provided (for now) is __*intel retrieval enhanced*__.
 
-The only added function is the actor *group randomiser* which allows map editors to control the
-visibility of a actor, or group of actors, using the tag system directly in the mission editor.
+Added functionality are listed below:
+
+**Actor group randomiser**
+
+Allows to control visibility of an actor, or group of actors, using specific tags in the mission
+editor. See [_Actor group randomiser tags_](#actorgrouprandomiser) section below.
+
+**Delayed extract point reveal**
+
+Mission setting for when to actually reveal the extract point on the map, with the following
+possibilities: before round start (vanilla), on round start, after collecting intel.
 
 ## Usage
 
 ### Link the replacement script
 
-First you need to link the the replacement _script_ provided from the _mission_ you want to edit.
+You will need to link the _mission_ you want to edit to the replacement _script_ provided.
+
 To do that, load the said mission in the mission editor. Then click the sort of notepad icon on the
-top left corner of the screen and in the drop down menu click on _select_.
+top left corner of the screen and in the drop down menu click on _select_. A window will pop up
+where you can select the wanted script, those provided by this mod are grouped under the `gbme/`
+directory.
 
-A window will pop up where you can select the wanted script, those provided by this mod are grouped
-under the `gbme/` directory (make sure to save your mission once you select the appropriate script).
+Make sure to save your mission once you select the appropriate script.
 
-### Group randomiser tags
+## Actor group randomiser
 
-To control the visibility of an actor, you need to set up some tags on the said actor. Here is the
-list of available tags:
+To control the visibility of an actor, you need to add some tags to the said actor in the mission
+editor.
+
+### Tags
 
 **`GroupRnd`**  
 Mandatory for all actors you want to control using this randomiser.
@@ -58,7 +71,7 @@ Used with the group parameter to control the maximum number of actors to apply t
 `num` parameter will be randomly chosen between the min value and the max value. Disregarded when
 the `num` parameter is explicitly provided.
 
-### Example: at least one entry
+### Example tags
 
 A popular demand answered by this randomiser is to have meshes blocking all possible path to a
 specific place and make sure at least one path is available during the game.
@@ -67,20 +80,20 @@ If you set up 3 meshes to block all entry points to a room, here is the tags you
 
 mesh #1 tags
 ```
-GroupRnd  
-group=TheRoom  
-act=disable  
-min=1  
+GroupRnd
+group=TheRoom
+act=disable
+min=1
 ```
 mesh #2 tags
 ```
-GroupRnd  
-group=TheRoom  
+GroupRnd
+group=TheRoom
 ```
 mesh #3 tags
 ```
-GroupRnd  
-group=TheRoom  
+GroupRnd
+group=TheRoom
 ```
 
 The tags of the first mesh can read like this: "disable at least 1 actor in this group".

@@ -1,0 +1,30 @@
+Key,SourceString,Comment
+"intelretrieval","Intel Retrieval",""
+"objective_RetrieveIntel","Locate and retrieve the intel device.","Opsboard"
+"objective_ExfiltrateBluFor","Exfiltrate to extraction point.","Opsboard"
+"summary_IntelRetrieved","Intel device retrieved.","AAR"
+"summary_BluForExfilFailed","Failed to reach extraction point.","AAR"
+"summary_BluForEliminated","Your unit was wiped out.","AAR"
+"missionsetting_teamexfil","Extract as a team","Opsboard"
+"missionsetting_teamexfil_0","No","Opsboard"
+"missionsetting_teamexfil_1","Yes","Opsboard"
+"missionsetting_searchtime","Search time (seconds)",
+"missionsetting_displaysearchlocations","Display search locations",
+"missionsetting_displaysearchlocations_0","None",
+"missionsetting_displaysearchlocations_1","1",
+"missionsetting_displaysearchlocations_2","2",
+"missionsetting_displaysearchlocations_3","Half",
+"missionsetting_displaysearchlocations_4","All but one",
+"missionsetting_displaysearchlocations_5","All locations"
+"missionsetting_proximityalert","Laptop proximity alert",
+"missionsetting_proximityalert_0","No",
+"missionsetting_proximityalert_1","Yes",
+"missionsetting_exfilreveal","Extract point reveal",
+"missionsetting_exfilreveal_0","Before round start",
+"missionsetting_exfilreveal_1","On round start",
+"missionsetting_exfilreveal_2","After collecting intel",
+"gamemessage_TeamExfil","Your remaining team members must all be present at the extraction point.",""
+"gamemessage_LaptopDestroyed","The intel device has been lost. Its position has been reset.",""
+"gamemessage_LaptopPickedUp","You picked up the intel device.",""
+"gamemessage_BumRushActivated","Danger - the defenders have been alerted to your presence!",""
+"intelretrieval_description","Investigate the marked locations to find the intel device. Search the device to confirm the presence of intel, then retrieve it to the marked extraction point.",
