@@ -1,4 +1,4 @@
-# Ground Branch Enhanced Mod (gbme)
+# Ground Branch Enhanced Mod (gbem)
 
 The goal of this mod is to provide drop in replacements for vanilla game modes, with added
 functionality to bring some more variety and fun to the game.
