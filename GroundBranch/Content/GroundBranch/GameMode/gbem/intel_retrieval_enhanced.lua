@@ -419,7 +419,7 @@ function intelretrieval:RandomiseObjectives()
 
 	-- activate the chosen extract point marker on the map if settings ask for it
 	if self.Settings.ExfilReveal.Value == ExfilReveal.BeforeRoundStart then
-		actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], bActive)
+		actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], true)
 	end
 
 	gamemode.ClearGameObjectives()
