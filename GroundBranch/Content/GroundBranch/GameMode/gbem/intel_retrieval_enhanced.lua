@@ -77,14 +77,10 @@ local intelretrieval = {
 		},
 		-- 1 to make watch display alert if in proximity
 
-		-- When to actually reveal the exfil location on the map
-		-- 0 = before round start
-		-- 1 = on round start
-		-- 2 = after collecting intel
 		ExfilReveal = {
-			Min = 0,
-			Max = 2,
-			Value = 0,
+			Min = ExfilReveal.BeforeRoundStart,
+			Max = ExfilReveal.AfterCollectingIntel,
+			Value = ExfilReveal.OnRoundStart,
 			AdvancedSetting = true,
 		},
 	},
