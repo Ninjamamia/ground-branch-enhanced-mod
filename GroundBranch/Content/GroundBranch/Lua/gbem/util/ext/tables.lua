@@ -5,7 +5,7 @@ local NEWLINE = string.char(10)
 --- Get a indented string representation of a table's content (recursively)
 ---
 --- @param tbl table        The table to debug
---- @param level integer    Start indentation level (optional, defaults to 0)
+--- @param level ?integer    Start indentation level (optional, defaults to 0)
 --- @return string          A string representation of the table's content
 ---
 function tables.debug(tbl, level)
