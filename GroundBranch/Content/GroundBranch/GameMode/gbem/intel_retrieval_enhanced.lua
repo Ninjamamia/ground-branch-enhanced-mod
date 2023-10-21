@@ -1,5 +1,8 @@
 -- Trying to keep this file as close as possible to the original game mode
 
+local shuffleTable = require("gbem.util.ext.tables").shuffleTable
+local filterTable = require("gbem.util.ext.tables").filter
+
 local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
 
@@ -83,6 +86,18 @@ local intelretrieval = {
 			Value = ExfilReveal.OnRoundStart,
 			AdvancedSetting = true,
 		},
+		MinInsertCount = {
+			Min = 1,
+			Max = 50,
+			Value = 50,
+			AdvancedSetting = true,
+		},
+		MaxInsertCount = {
+			Min = 1,
+			Max = 50,
+			Value = 50,
+			AdvancedSetting = true,
+		}
 	},
 	OpForTeamTag = "OpFor",
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
@@ -118,6 +133,8 @@ local intelretrieval = {
 	MissionLocationMarkers = {},
 	-- for creating rings on ops board showing probably location of laptop
 	
+	AttackersInsertionPoints = {},
+
 	ExtractionPoints = {},
 	ExtractionPointMarkers = {},
 	ExtractionPointIndex = 0,
@@ -260,24 +277,36 @@ function intelretrieval:PreInit()
 	-- set up laptop intel rings for ops board
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
 	
+	local intelLocationInsertionPoints = filterTable(AllInsertionPoints, function(insertionPoint)
+		return actor.GetTeamId(insertionPoint) == self.PlayerTeams.BluFor.TeamId
+			and actor.HasTag(insertionPoint, "Defenders")
+	end)
+
+	self.AttackersInsertionPoints = filterTable(AllInsertionPoints, function(insertionPoint)
+		return actor.GetTeamId(insertionPoint) == self.PlayerTeams.BluFor.TeamId
+			and not actor.HasTag(insertionPoint, "Defenders")
+	end)
+
+	self.Settings.MinInsertCount.Max = #self.AttackersInsertionPoints
+	self.Settings.MaxInsertCount.Max = self.Settings.MinInsertCount.Max
+	self.Settings.MinInsertCount.Value = self.Settings.MinInsertCount.Max
+	self.Settings.MaxInsertCount.Value = self.Settings.MinInsertCount.Max
+
 	self.MissionLocationMarkers = {}
-	
-	for i = 1, #AllInsertionPoints do
-		if actor.HasTag( AllInsertionPoints[i], "Defenders" ) then
-			local Location = actor.GetLocation(AllInsertionPoints[i])
-			local InsertionPointName = gamemode.GetInsertionPointName(AllInsertionPoints[i])
-			local MarkerName = self.LaptopObjectiveMarkerName
-			
-			MarkerName = self:GetModifierTextForObjective( AllInsertionPoints[i] ) .. MarkerName
-			-- this checks tags on the specified actor and produces a prefix if appropriate, for interpretation within the WBP_ObjectiveMarker widget
-			-- you can give the insertion point tags to add the relevant symbol before "INTEL?"
-			
-			self.MissionLocationMarkers[InsertionPointName] = gamemode.AddObjectiveMarker(Location, self.PlayerTeams.BluFor.TeamId, MarkerName, "MissionLocation", false)
-			-- NB new penultimate parameter of MarkerType ("Extraction" or "MissionLocation", at present)
-			
-			actor.SetActive(AllInsertionPoints[i], false)
-			-- now needed because playerstart status is now disregarded when determining what insertion points to display
-		end
+	for _, intelLocationInsertionPoint in ipairs(intelLocationInsertionPoints) do
+		local Location = actor.GetLocation(intelLocationInsertionPoint)
+		local InsertionPointName = gamemode.GetInsertionPointName(intelLocationInsertionPoint)
+		local MarkerName = self.LaptopObjectiveMarkerName
+
+		MarkerName = self:GetModifierTextForObjective( intelLocationInsertionPoint ) .. MarkerName
+		-- this checks tags on the specified actor and produces a prefix if appropriate, for interpretation within the WBP_ObjectiveMarker widget
+		-- you can give the insertion point tags to add the relevant symbol before "INTEL?"
+
+		self.MissionLocationMarkers[InsertionPointName] = gamemode.AddObjectiveMarker(Location, self.PlayerTeams.BluFor.TeamId, MarkerName, "MissionLocation", false)
+		-- NB new penultimate parameter of MarkerType ("Extraction" or "MissionLocation", at present)
+
+		actor.SetActive(intelLocationInsertionPoint, false)
+		-- now needed because playerstart status is now disregarded when determining what insertion points to display
 	end
 
 	--- find all nav blockers
@@ -518,21 +547,32 @@ function intelretrieval:RandomiseObjectives()
 			-- need to add objectives in random order else attackers get a big clue...
 		end
 	end
-			
+
+
 	-- new MF 2021/10/11 allow disabling of insertion points that are too close to the currently selected extraction zone
-	
-	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
-		
-	for i, InsertionPoint in ipairs(AllInsertionPoints) do
-		-- any insertion point matching a tag of the extraction point will be disabled (i.e. is in proximity)
-		
+
+	-- randomly enable the desired number of insertion points
+
+	local shuffledInsertionPoints = shuffleTable(self.AttackersInsertionPoints)
+	local selectedInsertionPointCount = 0
+	local desiredInsertionPointCount = umath.randomrange(
+		self.Settings.MinInsertCount.Value,
+		self.Settings.MaxInsertCount.Value
+	)
+
+	for _, InsertionPoint in ipairs(shuffledInsertionPoints) do
 		if actor.GetTeamId(InsertionPoint) == self.PlayerTeams.BluFor.TeamId then
-			local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
-			
-			if actor.HasTag( self.ExtractionPoints[self.ExtractionPointIndex], InsertionPointName) then
+
+			local bActive = true
+
+			if selectedInsertionPointCount >= desiredInsertionPointCount then
 				bActive = false
-			else
-				bActive = true
+			end
+
+			-- disable insertion point matching a tag of the extraction point (proximity)
+			local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
+			if actor.HasTag(self.ExtractionPoints[self.ExtractionPointIndex], InsertionPointName) then
+				bActive = false
 			end
 
 			-- new in 1033 (2022/9/25): allow disabling of attacker insertion points if a current search location insertion point is a tag on the attacker IP
@@ -543,10 +583,11 @@ function intelretrieval:RandomiseObjectives()
 				end
 			end
 
+			if bActive then selectedInsertionPointCount = selectedInsertionPointCount + 1 end
 			actor.SetActive(InsertionPoint, bActive)
 		end
 	end
-	
+
 end
 
 

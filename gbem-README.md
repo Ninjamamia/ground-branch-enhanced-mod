@@ -12,10 +12,20 @@ Added functionality are listed below:
 Allows to control visibility of an actor, or group of actors, using specific tags in the mission
 editor. See [_Actor group randomiser tags_](#actorgrouprandomiser) section below.
 
-**Delayed extract point reveal**
+**Delay extract point reveal**
 
 Mission setting for when to actually reveal the extract point on the map, with the following
-possibilities: before round start (vanilla), on round start, after collecting intel.
+possibilities: before round start, on round start, after collecting intel.  
+
+Defaults to `before round start`, reproducing vanilla behavior.
+
+**Randomise insert point**
+
+Two mission settings to control the minimum and maximum number of insert points to enable. The
+actual value will be randomly selected between min and max.
+
+Both defaults to `50` so all possible insertion points are used, reproducing vanilla behavior.
+
 
 ## Usage
 
