@@ -2,6 +2,7 @@
 
 local shuffleTable = require("gbem.util.ext.tables").shuffleTable
 local filterTable = require("gbem.util.ext.tables").filter
+local printf = require("gbem.util.ext.strings").printf
 
 local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
@@ -140,19 +141,18 @@ local intelretrieval = {
 	ExtractionPointIndex = 0,
 	
 	Laptops = {},
+	LaptopLocationNames = {},
+	SelectedLaptop = nil,
+	SelectedLaptopLocationName = '',
 	
 	LaptopTag = "TheIntelIsALie",
 	-- this variable is relied on by the IntelTarget.lua script - do not delete
 	
-	RandomLaptopIndex = nil,
-	
-	LaptopLocationNameList = {},
-	-- the true location name will be first in this list, otherwise randomly shuffled
 		
 	LaptopObjectiveMarkerName = "",
 	-- text displayed on search location marker (currently none)
 	
-	CurrentSearchObjectives = {},
+	ForbiddenInsertionPoints = {},
 	-- list of 'defender' insertion points corresponding to currently selected/displayed search locations (typically size 2)
 	
 	TeamExfilWarning = false,
@@ -273,6 +273,12 @@ function intelretrieval:PreInit()
 	-- now sort laptops
 	
 	self.Laptops = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/Electronics/MilitaryLaptop/BP_Laptop_Usable.BP_Laptop_Usable_C')
+	for _, laptop in ipairs(self.Laptops) do
+		self:AddToTableIfNotAlreadyPresent(
+			self.LaptopLocationNames,
+			self:GetInsertionPointNameForLaptop(laptop)
+		)
+	end
 
 	-- set up laptop intel rings for ops board
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
@@ -403,13 +409,13 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 		-- need to update this as ops board setting may have changed - have to do this before RoundStage InProgress to be effective
 		
 		-- set up watch stuff
-		if self.Settings.ProximityAlert.Value == 1 and self.RandomLaptopIndex ~= nil then
+		if self.Settings.ProximityAlert.Value == 1 and self.SelectedLaptop ~= nil then
 			--print("Setting up watch proximity alert data")
 			gamemode.SetWatchMode( "IntelRetrieval", false, false, false, false )
 			gamemode.ResetWatch()
 			gamemode.SetCaptureZone( self.LaptopProximityAlertRadius, 0, 255, true )
 			-- cap radius, cap height, team ID, spherical zone? (ignore height)
-			local NewLaptopLocation = actor.GetLocation( self.Laptops[self.RandomLaptopIndex] )
+			local NewLaptopLocation = actor.GetLocation( self.SelectedLaptop )
 			gamemode.SetObjectiveLocation( NewLaptopLocation ) 
 			--print("Setting objective location to (" .. NewLaptopLocation.x .. ", " .. NewLaptopLocation.y .. ", " .. NewLaptopLocation.z .. ")")
 		end
@@ -432,7 +438,18 @@ end
 
 function intelretrieval:RandomiseObjectives()
 	-- called to reset and randomise the mission objectives
+	gamemode.ClearGameObjectives()
 
+	gamemode.AddGameObjective(self.PlayerTeams.BluFor.TeamId, "RetrieveIntel", 1)
+	gamemode.AddGameObjective(self.PlayerTeams.BluFor.TeamId, "ExfiltrateBluFor", 1)
+
+	self:RandomiseExtractLocation()
+	self:RandomiseLaptopLocation()
+	self:RandomiseSearchLocation()
+	self:RandomiseInsertLocation()
+end
+
+function intelretrieval:RandomiseExtractLocation()
 	-- select a random extract point index
 	self.ExtractionPointIndex = umath.random(#self.ExtractionPoints)
 
@@ -446,113 +463,85 @@ function intelretrieval:RandomiseObjectives()
 	if self.Settings.ExfilReveal.Value == ExfilReveal.BeforeRoundStart then
 		actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], true)
 	end
+end
 
-	gamemode.ClearGameObjectives()
+function intelretrieval:RandomiseLaptopLocation()
+	self.SelectedLaptop = nil
+	self.SelectedLaptopLocationName = ''
+
+	-- deactivate all laptops
+	for _, laptop in ipairs(self.Laptops) do
+		actor.SetActive(laptop, false)
+		actor.RemoveTag(laptop, self.LaptopTag)
+	end
+
+	-- select a laptop randomly
+	self.SelectedLaptopIndex = umath.random(#self.Laptops)
+	self.SelectedLaptop = self.Laptops[self.SelectedLaptopIndex]
+	self.SelectedLaptopLocationName = self:GetInsertionPointNameForLaptop(self.SelectedLaptop)
+	printf("----picking laptop randomly -> '%s'",  actor.GetName(self.SelectedLaptop))
+
+	-- activate selected laptop
+	actor.SetActive(self.SelectedLaptop, true)
+	actor.AddTag(self.SelectedLaptop, self.LaptopTag)
+end
+
+function intelretrieval:RandomiseSearchLocation()
+
+	-- we want to prevent insertion points too close to the selected search locations
+	self.ForbiddenInsertionPoints = {}
+	table.insert(self.ForbiddenInsertionPoints, self.SelectedLaptopLocationName)
+
+	-- get the desired number of search location to display on the game board
+	local numberOfSearchLocations = self:GetNumberOfSearchLocations()
+
+	-- hide all location markers on the map
+	for _, laptopLocationName in ipairs(self.LaptopLocationNames) do
+		actor.SetActive(self.MissionLocationMarkers[laptopLocationName], false)
+	end
+	-- hide the location labels next to the map
 	gamemode.ClearSearchLocations()
-	
-	self.CurrentSearchObjectives = {}
-	gamemode.AddGameObjective(self.PlayerTeams.BluFor.TeamId, "RetrieveIntel", 1)
-	gamemode.AddGameObjective(self.PlayerTeams.BluFor.TeamId, "ExfiltrateBluFor", 1)
 
-	-- second, pick a random laptop
+	-- list all laptop locations except the selected one (randomized)
+	local otherLaptopLocationNames = shuffleTable(
+		filterTable(self.LaptopLocationNames, function(laptopLocationName)
+			return laptopLocationName ~= self.SelectedLaptopLocationName
+		end)
+	)
 
-	self.LaptopLocationNameList = {}
-	local AllFakeLocationNames = {}
-	local LocationName
+	-- select the desired number of search locations
+	local searchLocationNames = {}
+	for i=1, numberOfSearchLocations do
 
-	self.RandomLaptopIndex = umath.random(#self.Laptops);
-	
-	print("----picking laptop " .. self.RandomLaptopIndex .. " (" .. actor.GetName(self.Laptops[self.RandomLaptopIndex]) .. ") out of " .. #self.Laptops .. " possible")
-	
-	--actor.AddTag(self.Laptops[self.RandomLaptopIndex], self.LaptopTag)
-	LocationName = self:GetInsertionPointNameForLaptop(self.Laptops[self.RandomLaptopIndex])
-	table.insert(self.LaptopLocationNameList, LocationName)
-			
-	if not self.TestAllLaptops then
-			
-		for i = 1, #self.Laptops do
-			--actor.SetActive(self.Laptops[i], true)
-			if (i == self.RandomLaptopIndex) then
-				actor.AddTag(self.Laptops[i], self.LaptopTag)
-				actor.SetActive(self.Laptops[i], true)
-				-- make laptop visible and usable
-			else
-				actor.SetActive(self.Laptops[i], false)
-				-- make laptop disappear
-				
-				actor.RemoveTag(self.Laptops[i], self.LaptopTag)
-				LocationName = self:GetInsertionPointNameForLaptop(self.Laptops[i])
-				if LocationName ~= self.LaptopLocationNameList[1] then
-					self:AddToTableIfNotAlreadyPresent( AllFakeLocationNames, LocationName )
-				end
-			end
-		end
-	
-	else
+		-- making sure we always include the selected laptop location
+		if i == 1 then
+			table.insert(searchLocationNames, self.SelectedLaptopLocationName)
 
-		for i = 1, #self.Laptops do
-			actor.AddTag(self.Laptops[i], self.LaptopTag)
-			actor.SetActive(self.Laptops[i], true)
-				-- make laptop visible and usable
-				
-			LocationName = self:GetInsertionPointNameForLaptop(self.Laptops[i])
-			if LocationName ~= self.LaptopLocationNameList[1] then
-				self:AddToTableIfNotAlreadyPresent( AllFakeLocationNames, LocationName )
-			end
-		end
-	
-	end
-	
-	for i = #AllFakeLocationNames, 1, -1 do
-		local j = umath.random(i)
-		AllFakeLocationNames[i], AllFakeLocationNames[j] = AllFakeLocationNames[j], AllFakeLocationNames[i]
-		table.insert(self.LaptopLocationNameList, AllFakeLocationNames[i])
-	end
-	-- LaptopLocationNames contains random sequence of laptop locations, with the true location at [1]
-	
-	local NumberOfSearchLocations = self:GetNumberOfSearchLocations()
-	
-	for i = 1, #self.LaptopLocationNameList do
-		local bActive
-		if i <= NumberOfSearchLocations then
-			bActive = true
-		else
-			bActive = false
-		end
-		
-		actor.SetActive( self.MissionLocationMarkers[ self.LaptopLocationNameList[i] ], bActive )
-	end
-	
-	if math.min( #self.LaptopLocationNameList, NumberOfSearchLocations ) > 3 then
-	-- just too many locations
-		local NewObjective = "The marked area"
-		table.insert(self.CurrentSearchObjectives, NewObjective)
-		gamemode.AddSearchLocation(self.PlayerTeams.BluFor.TeamId, NewObjective, 1)
-	else
-		local LocationIndices = {}
-
-		-- this is convoluted but we can't shuffle order of LaptopLocationNameList because that screws up AI spawns
-		for i = 1, math.min( #self.LaptopLocationNameList, NumberOfSearchLocations ) do
-			LocationIndices[i] = i
-		end
-		
-		-- now one last shuffly thing to create objective names
-		for i = math.min( #self.LaptopLocationNameList, NumberOfSearchLocations ), 1, -1 do
-			local j = umath.random(i)
-			LocationIndices[i], LocationIndices[j] = LocationIndices[j], LocationIndices[i]
-			
-			local NewObjective = self.LaptopLocationNameList[ LocationIndices[i] ]
-			table.insert(self.CurrentSearchObjectives, NewObjective)
-			gamemode.AddSearchLocation(self.PlayerTeams.BluFor.TeamId, NewObjective, 1)
-			-- need to add objectives in random order else attackers get a big clue...
+		-- and fill the rest of the spots with the random other search locations
+		elseif i >= 2 then
+			table.insert(searchLocationNames, otherLaptopLocationNames[i - 1])
+			table.insert(self.ForbiddenInsertionPoints, otherLaptopLocationNames[i - 1])
 		end
 	end
 
+	-- enable selected search locations (after shuffling)
+	for i, searchLocationName in ipairs(shuffleTable(searchLocationNames)) do
+		-- display location markers
+		actor.SetActive(self.MissionLocationMarkers[searchLocationName], true)
+		-- display location labels
+		gamemode.AddSearchLocation(self.PlayerTeams.BluFor.TeamId, searchLocationName, 1)
+	end
 
+	-- group the location labels if there are more than 3
+	if numberOfSearchLocations > 3 then
+		gamemode.ClearSearchLocations()
+		gamemode.AddSearchLocation(self.PlayerTeams.BluFor.TeamId, "The marked area", 1)
+	end
+end
+
+function intelretrieval:RandomiseInsertLocation()
 	-- new MF 2021/10/11 allow disabling of insertion points that are too close to the currently selected extraction zone
-
 	-- randomly enable the desired number of insertion points
-
 	local shuffledInsertionPoints = shuffleTable(self.AttackersInsertionPoints)
 	local selectedInsertionPointCount = 0
 	local desiredInsertionPointCount = umath.randomrange(
@@ -577,8 +566,8 @@ function intelretrieval:RandomiseObjectives()
 
 			-- new in 1033 (2022/9/25): allow disabling of attacker insertion points if a current search location insertion point is a tag on the attacker IP
 			-- not terribly efficient but it'll do
-			for j, ForbiddenInsertionPointName in ipairs(self.CurrentSearchObjectives) do
-				if actor.HasTag( InsertionPoint, ForbiddenInsertionPointName) then
+			for j, ForbiddenInsertionPoint in ipairs(self.ForbiddenInsertionPoints) do
+				if actor.HasTag( InsertionPoint, ForbiddenInsertionPoint) then
 					bActive = false
 				end
 			end
@@ -587,9 +576,7 @@ function intelretrieval:RandomiseObjectives()
 			actor.SetActive(InsertionPoint, bActive)
 		end
 	end
-
 end
-
 
 function intelretrieval:ReportError(ErrorMessage)
 	gamemode.BroadcastGameMessage("Error! " .. ErrorMessage, "Upper", 5.0)
@@ -653,16 +640,15 @@ function intelretrieval:SpawnOpFor()
 	-- tags to ignore on the second pass (which will include all of ProcessAITagsOnFirstPass)
 	
 	-- first add laptop location names to the selected/excluded tags list (ProcessAITagsOnFirstPass, IgnoreAITagsOnSecondPass)
-	if  #self.LaptopLocationNameList > 0 then
+	if  #self.LaptopLocationNames > 0 then
 		--print("IntelRetrieval: Including AI with tag " .. self.LaptopLocationNameList[1])
-		table.insert(ProcessAITagsOnFirstPass, self.LaptopLocationNameList[1])	
-		table.insert(IgnoreAITagsOnSecondPass, self.LaptopLocationNameList[1])
+		table.insert(ProcessAITagsOnFirstPass, self.SelectedLaptopLocationName)
 		-- spawn AI if their tag matches the current/active laptop group
 		-- have to add tag to ignore list as well (for phase 2)
 		
-		for i = 2, #self.LaptopLocationNameList do
-			table.insert(IgnoreAITagsOnSecondPass, self.LaptopLocationNameList[i])
+		for i = 1, #self.LaptopLocationNames do
 			--print("IntelRetrieval: Excluding AI with tag " .. self.LaptopLocationNameList[i])
+			table.insert(IgnoreAITagsOnSecondPass, self.LaptopLocationNames[i])
 		end
 		-- add all other laptop location names to the ignore list
 	end
@@ -675,15 +661,13 @@ function intelretrieval:SpawnOpFor()
 			
 				if i == self.ExtractionPointIndex then
 					-- selected extraction point
-			
 					--print("IntelRetrieval: Including AI with tag " .. Tag)
 					table.insert(ProcessAITagsOnFirstPass, Tag)
-					table.insert(IgnoreAITagsOnSecondPass, Tag)
-				else
-					--print("IntelRetrieval: Excluding AI with tag " .. Tag)
-					table.insert(IgnoreAITagsOnSecondPass, Tag)
-					-- disregard modifier tags such as AddUpArrow, Add3, etc
 				end
+
+				--print("IntelRetrieval: Excluding AI with tag " .. Tag)
+				table.insert(IgnoreAITagsOnSecondPass, Tag)
+				-- disregard modifier tags such as AddUpArrow, Add3, etc
 			end
 		end
 		-- spawn AI if their tag matches the current/active laptop group
@@ -1004,23 +988,25 @@ function intelretrieval:GetNumberOfSearchLocations()
 		-- 0 = none
 		-- 1 = one (true location)
 		-- 2 = two
-		-- 3 = half
+		-- 3 = half (rounded down)
 		-- 4 = all but one
 		-- 5 = all
-		
-	if self.Settings.DisplaySearchLocations.Value <= 2 then
-		return self.Settings.DisplaySearchLocations.Value
-	elseif self.Settings.DisplaySearchLocations.Value == 3 then
-		return math.floor(#self.LaptopLocationNameList / 2)
-		-- round down
-	elseif self.Settings.DisplaySearchLocations.Value == 4 then
-		return #self.LaptopLocationNameList - 1
-	else
-		return #self.LaptopLocationNameList
+
+	local displaySearchLocations = self.Settings.DisplaySearchLocations.Value
+
+	if displaySearchLocations <= 2 then
+		return math.min(#self.LaptopLocationNames, displaySearchLocations)
 	end
 	
-	return 2
-	-- shouldn't get here
+	if displaySearchLocations == 3 then
+		return math.floor(#self.LaptopLocationNames / 2)
+	end
+	
+	if displaySearchLocations == 4 then
+		return #self.LaptopLocationNames - 1
+	end
+	
+	return #self.LaptopLocationNames
 end
 
 
@@ -1085,12 +1071,7 @@ end
 function intelretrieval:GetLaptopInPlay()
 	-- deprecated - to be deleted
 	-- pass to BP_LaptopUsable the currently selected laptop (if any)
-	
-	if self.RandomLaptopIndex ~= nil then
-		return self.Laptops[ self.RandomLaptopIndex ]
-	else
-		return nil
-	end
+	return self.SelectedLaptop
 end
 
 
