@@ -300,7 +300,6 @@ function tables.ConcatenateTables(table1, table2)
 end
 
 function tables.RemoveDuplicates(tableIn)
-    print(tableIn)
     if tableIn == nil then
         return nil
     elseif #tableIn < 2 then

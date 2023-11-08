@@ -307,10 +307,10 @@ function intelretrieval:PreInit()
 			and not actor.HasTag(insertionPoint, "Defenders")
 	end)
 
-	self.Settings.InsertCountMin.Max = #self.AttackersInsertionPoints
-	self.Settings.InsertCountMax.Max = self.Settings.InsertCountMin.Max
-	self.Settings.InsertCountMin.Value = self.Settings.InsertCountMin.Max
-	self.Settings.InsertCountMax.Value = self.Settings.InsertCountMin.Max
+	self.Settings.InsertCountMin.Max   = #self.AttackersInsertionPoints
+	self.Settings.InsertCountMax.Max   = #self.AttackersInsertionPoints
+	self.Settings.InsertCountMin.Value = #self.AttackersInsertionPoints
+	self.Settings.InsertCountMax.Value = #self.AttackersInsertionPoints
 
 
 	self.MissionLocationMarkers = {}
