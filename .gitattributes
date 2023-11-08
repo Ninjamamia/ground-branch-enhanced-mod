@@ -1,6 +1,9 @@
 .gitattributes export-ignore  
 .gitignore export-ignore
 
+/README.md export-ignore
+/LICENSE.txt export-ignore
+
 /GroundBranch/Content/GroundBranch/GameMode/Assassination.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/Benchmark.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/Benchmark.lua.OLD export-ignore
