@@ -20,10 +20,10 @@ Key,SourceString,Comment
 "missionsetting_proximityalert_0","No",
 "missionsetting_proximityalert_1","Yes",
 "missionsetting_aicount","Enemy count", "Number of expected enemy agents"
-"missionsetting_mininsertcount","Insertion points min", "Minimum number of insertion points"
-"missionsetting_maxinsertcount","Insertion points max", "Maximum number of insertion points"
-"missionsetting_minlaptopcount","Laptop count min", "Minimum number of laptops"
-"missionsetting_maxlaptopcount","Laptop count max", "Maximum number of laptops"
+"missionsetting_insertcountmin","Insert point count min", "Minimum number of insertion points"
+"missionsetting_insertcountmax","Insert point count max", "Maximum number of insertion points"
+"missionsetting_laptopcountmin","Laptop count min", "Minimum number of laptops"
+"missionsetting_laptopcountmax","Laptop count max", "Maximum number of laptops"
 "missionsetting_exfilreveal","Extract point reveal",
 "missionsetting_exfilreveal_0","Before round start",
 "missionsetting_exfilreveal_1","On round start",

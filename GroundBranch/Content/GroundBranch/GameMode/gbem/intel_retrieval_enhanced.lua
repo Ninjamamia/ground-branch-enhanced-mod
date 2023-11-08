@@ -86,25 +86,25 @@ local intelretrieval = {
 			Value = ExfilReveal.OnRoundStart,
 			AdvancedSetting = true,
 		},
-		MinInsertCount = {
+		InsertCountMin = {
 			Min = 1,
 			Max = 50,
 			Value = 50,
 			AdvancedSetting = true,
 		},
-		MaxInsertCount = {
+		InsertCountMax = {
 			Min = 1,
 			Max = 50,
 			Value = 50,
 			AdvancedSetting = true,
 		},
-		MinLaptopCount = {
+		LaptopCountMin = {
 			Min = 1,
 			Max = 20,
 			Value = 1,
 			AdvancedSetting = true,
 		},
-		MaxLaptopCount = {
+		LaptopCountMax = {
 			Min = 1,
 			Max = 20,
 			Value = 1,
@@ -291,8 +291,8 @@ function intelretrieval:PreInit()
 		)
 	end
 
-	self.Settings.MinLaptopCount.Max = #self.Laptops
-	self.Settings.MaxLaptopCount.Max = #self.Laptops
+	self.Settings.LaptopCountMin.Max = #self.Laptops
+	self.Settings.LaptopCountMax.Max = #self.Laptops
 
 	-- set up laptop intel rings for ops board
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
@@ -307,10 +307,10 @@ function intelretrieval:PreInit()
 			and not actor.HasTag(insertionPoint, "Defenders")
 	end)
 
-	self.Settings.MinInsertCount.Max = #self.AttackersInsertionPoints
-	self.Settings.MaxInsertCount.Max = self.Settings.MinInsertCount.Max
-	self.Settings.MinInsertCount.Value = self.Settings.MinInsertCount.Max
-	self.Settings.MaxInsertCount.Value = self.Settings.MinInsertCount.Max
+	self.Settings.InsertCountMin.Max = #self.AttackersInsertionPoints
+	self.Settings.InsertCountMax.Max = self.Settings.InsertCountMin.Max
+	self.Settings.InsertCountMin.Value = self.Settings.InsertCountMin.Max
+	self.Settings.InsertCountMax.Value = self.Settings.InsertCountMin.Max
 
 
 	self.MissionLocationMarkers = {}
@@ -486,8 +486,8 @@ function intelretrieval:RandomiseLaptopLocation()
 
 	-- get the desired number of laptops to enable
 	local desiredLaptopCount = umath.randomrange(
-		self.Settings.MinLaptopCount.Value,
-		self.Settings.MaxLaptopCount.Value
+		self.Settings.LaptopCountMin.Value,
+		self.Settings.LaptopCountMax.Value
 	)
 
 	logger:info(sprintf('Enabling %s random laptop(s)...', desiredLaptopCount))
@@ -573,8 +573,8 @@ function intelretrieval:RandomiseInsertLocation()
 	local shuffledInsertionPoints = shuffleTable(self.AttackersInsertionPoints)
 	local selectedInsertionPointCount = 0
 	local desiredInsertionPointCount = umath.randomrange(
-		self.Settings.MinInsertCount.Value,
-		self.Settings.MaxInsertCount.Value
+		self.Settings.InsertCountMin.Value,
+		self.Settings.InsertCountMax.Value
 	)
 
 	for _, InsertionPoint in ipairs(shuffledInsertionPoints) do
