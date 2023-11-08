@@ -26,6 +26,12 @@ actual value will be randomly selected between min and max.
 
 Both defaults to `50` so all possible insertion points are used, reproducing vanilla behavior.
 
+**Multiple laptops**
+
+Two mission settings to control the minimum and maximum number of laptops to place in game. The
+actual value will be randomly selected between min and max, only one laptop will contain the intel.
+
+Both defaults to `1` to only have a single laptop, reproducing vanilla behavior.
 
 ## Usage
 
