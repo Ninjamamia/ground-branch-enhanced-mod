@@ -394,7 +394,15 @@ end
 
 
 function intelretrieval:OnRoundStageSet(RoundStage)
-	print("--intelretrieval:OnRoundStageSet() - new round stage " .. RoundStage)
+	local paddingLeft = string.rep("-", 10)
+	local paddingRight = string.rep("-", 25 - RoundStage:len())
+
+	logger:info(sprintf(
+		'Round stage changed to: %s %s %s',
+		paddingLeft,
+		RoundStage,
+		paddingRight
+	))
 
 	if RoundStage == "WaitingForReady" then
 		timer.ClearAll()
@@ -487,22 +495,28 @@ end
 
 function intelretrieval:RandomiseLaptopLocation()
 
+	logger:info(sprintf(
+		'Placing between %s and %s laptops...',
+		self.Settings.LaptopCountMin.Value,
+		self.Settings.LaptopCountMax.Value
+	))
+
 	-- get the desired number of laptops to enable
 	local desiredLaptopCount = umath.randomrange(
 		self.Settings.LaptopCountMin.Value,
 		self.Settings.LaptopCountMax.Value
 	)
 
-	logger:info(sprintf('Enabling %s random laptop(s)...', desiredLaptopCount))
-
 	self.randomisedLaptops = shuffleTable(self.Laptops)
 
 	-- set laptops state according to settings
+	local laptopCount = 0
 	for i,laptop in ipairs(self.randomisedLaptops) do
 
 		-- first enabled laptop will contain the intel
 		if i == 1 then
-			logger:info(sprintf("Picking laptop randomly (intel) -> '%s'",  actor.GetName(laptop)))
+			logger:debug(sprintf("Placing intel laptop '%s'",  actor.GetName(laptop)))
+			laptopCount = laptopCount + 1
 			actor.SetActive(laptop, true)
 			actor.AddTag(laptop, self.LaptopTag)
 			self.SelectedLaptop = laptop
@@ -510,12 +524,12 @@ function intelretrieval:RandomiseLaptopLocation()
 			-- prevent insertion points too close to the selected intel location
 			table.insert(self.ForbiddenInsertionPoints, self.SelectedLaptopLocationName)
 
-
 		-- other enabled laptops will not contain intel
 		elseif i <= desiredLaptopCount then
+			laptopCount = laptopCount + 1
 			actor.SetActive(laptop, true)
 			actor.RemoveTag(laptop, self.LaptopTag)
-			logger:info(sprintf("Picking laptop randomly -> '%s'",  actor.GetName(laptop)))
+			logger:debug(sprintf("Placing empty laptop '%s'",  actor.GetName(laptop)))
 
 		-- all other laptops will be disabled
 		else
@@ -523,13 +537,15 @@ function intelretrieval:RandomiseLaptopLocation()
 			actor.RemoveTag(laptop, self.LaptopTag)
 		end
 	end
+
+	logger:info(sprintf('-> Placed %s laptop(s)', laptopCount))
 end
 
 function intelretrieval:RandomiseSearchLocation()
 	-- get the desired number of search location to display on the game board
 	local numberOfSearchLocations = self:GetNumberOfSearchLocations()
 
-	logger:info(sprintf('Displaying %s random search location(s)...', numberOfSearchLocations))
+	logger:info('Placing search locations markers...')
 
 	-- hide all location labels
 	gamemode.ClearSearchLocations()
@@ -551,7 +567,7 @@ function intelretrieval:RandomiseSearchLocation()
 	-- display the selected search location markers
 	for _, searchLocationName in ipairs(searchLocationNames) do
 
-		logger:info(sprintf('Displaying search location marker %s', searchLocationName))
+		logger:debug(sprintf("-> Placing search location marker '%s'", searchLocationName))
 		actor.SetActive(self.MissionLocationMarkers[searchLocationName], true)
 
 		-- prevent insertion points too close to the displayed search location
@@ -568,6 +584,8 @@ function intelretrieval:RandomiseSearchLocation()
 			gamemode.AddSearchLocation(self.PlayerTeams.BluFor.TeamId, searchLocationName, 1)
 		end
 	end
+
+	logger:info(sprintf("-> Placed %s search location marker(s)", #searchLocationNames))
 end
 
 function intelretrieval:RandomiseInsertLocation()
@@ -658,6 +676,12 @@ end
 
 
 function intelretrieval:SpawnOpFor()
+	logger:info(sprintf(
+		'Spawning between %s and %s enemies...',
+		self.Settings.AiCountMin.Value,
+		self.Settings.AiCountMax.Value
+	))
+
 	local desiredAiCount = umath.randomrange(
 		self.Settings.AiCountMin.Value,
 		self.Settings.AiCountMax.Value
@@ -802,7 +826,7 @@ function intelretrieval:SpawnOpFor()
 					end
 						
 				else
-					print("SpawnOpFor(): Priority group " .. CurrentPriorityGroup.. " was unexpectedly empty")
+					logger:warn(sprintf("SpawnOpFor(): Priority group %s was unexpectedly empty", CurrentPriorityGroup))
 				end
 				
 			end
@@ -820,6 +844,7 @@ function intelretrieval:SpawnOpFor()
 
 	ai.CreateOverDuration(4.0, math.min( desiredAiCount, #OrderedSpawns), OrderedSpawns, self.OpForTeamTag)
 	-- OrderedSpawns may be smaller than expected because of the conditional spawning, so just use the size of that list directly. It won't be bigger than self.Settings.OpForCount.Value.
+	logger:info(sprintf('-> Spawned %s enemies', desiredAiCount))
 end
 
 
