@@ -28,7 +28,13 @@ local intelretrieval = {
 	},
 	
 	Settings = {
-		AiCount = {
+		AiCountMin = {
+			Min = 0,
+			Max = 50,
+			Value = 15,
+			AdvancedSetting = false,
+		},
+		AiCountMax = {
 			Min = 0,
 			Max = 50,
 			Value = 15,
@@ -263,9 +269,10 @@ function intelretrieval:PreInit()
 	
 	self.SpawnPriorityGroups[CurrentPriorityGroup] = CurrentPriorityGroupSpawns
 	self.TotalNumberOfSpawnsFound = TotalSpawns
-	
+
 	TotalSpawns = math.min(ai.GetMaxCount(), TotalSpawns)
-	self.Settings.AiCount.Max = TotalSpawns
+	self.Settings.AiCountMin.Max = TotalSpawns
+	self.Settings.AiCountMax.Max = TotalSpawns
 	
 	-- now sort extractions
 	
@@ -651,8 +658,12 @@ end
 
 
 function intelretrieval:SpawnOpFor()
-	local OrderedSpawns = {}
+	local desiredAiCount = umath.randomrange(
+		self.Settings.AiCountMin.Value,
+		self.Settings.AiCountMax.Value
+	)
 
+	local OrderedSpawns = {}
 	local RejectedSpawns = {}
 	local Group 
 	local AILeftToSpawn
@@ -706,7 +717,7 @@ function intelretrieval:SpawnOpFor()
 
 		for CurrentPriorityGroup = 1, self.LastSpawnPriorityGroup do
 		
-			AILeftToSpawn =  math.max( 0, self.Settings.AiCount.Value - #OrderedSpawns )
+			AILeftToSpawn =  math.max( 0, desiredAiCount - #OrderedSpawns )
 			-- this will be zero if the T count is already reached
 			
 			local CurrentAISpawnTarget 
@@ -807,7 +818,7 @@ function intelretrieval:SpawnOpFor()
 		table.insert(OrderedSpawns, RejectedSpawns[i])
 	end
 
-	ai.CreateOverDuration(4.0, math.min( self.Settings.AiCount.Value, #OrderedSpawns), OrderedSpawns, self.OpForTeamTag)
+	ai.CreateOverDuration(4.0, math.min( desiredAiCount, #OrderedSpawns), OrderedSpawns, self.OpForTeamTag)
 	-- OrderedSpawns may be smaller than expected because of the conditional spawning, so just use the size of that list directly. It won't be bigger than self.Settings.OpForCount.Value.
 end
 

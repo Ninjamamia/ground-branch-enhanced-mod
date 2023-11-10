@@ -19,7 +19,8 @@ Key,SourceString,Comment
 "missionsetting_proximityalert","Laptop proximity alert",
 "missionsetting_proximityalert_0","No",
 "missionsetting_proximityalert_1","Yes",
-"missionsetting_aicount","Enemy count", "Number of expected enemy agents"
+"missionsetting_aicountmin","Enemy count min", "Minimum number of expected enemy agents"
+"missionsetting_aicountmax","Enemy count max", "Maximum number of expected enemy agents"
 "missionsetting_insertcountmin","Insert point count min", "Minimum number of insertion points"
 "missionsetting_insertcountmax","Insert point count max", "Maximum number of insertion points"
 "missionsetting_laptopcountmin","Laptop count min", "Minimum number of laptops"
