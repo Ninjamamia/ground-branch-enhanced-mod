@@ -266,7 +266,6 @@ function intelretrieval:PreInit()
 	
 	TotalSpawns = math.min(ai.GetMaxCount(), TotalSpawns)
 	self.Settings.AiCount.Max = TotalSpawns
-	self.Settings.AiCount.Value = math.min(self.Settings.AiCount.Value, TotalSpawns)
 	
 	-- now sort extractions
 	
@@ -309,9 +308,6 @@ function intelretrieval:PreInit()
 
 	self.Settings.InsertCountMin.Max   = #self.AttackersInsertionPoints
 	self.Settings.InsertCountMax.Max   = #self.AttackersInsertionPoints
-	self.Settings.InsertCountMin.Value = #self.AttackersInsertionPoints
-	self.Settings.InsertCountMax.Value = #self.AttackersInsertionPoints
-
 
 	self.MissionLocationMarkers = {}
 	for _, intelLocationInsertionPoint in ipairs(intelLocationInsertionPoints) do
