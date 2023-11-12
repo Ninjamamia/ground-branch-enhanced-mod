@@ -304,7 +304,7 @@ function intelretrieval:PreInit()
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
 	
 	local intelLocationInsertionPoints = filterTable(AllInsertionPoints, function(insertionPoint)
-		return actor.GetTeamId(insertionPoint) == self.PlayerTeams.BluFor.TeamId
+		return actor.GetTeamId(insertionPoint) == 255
 			and actor.HasTag(insertionPoint, "Defenders")
 	end)
 
