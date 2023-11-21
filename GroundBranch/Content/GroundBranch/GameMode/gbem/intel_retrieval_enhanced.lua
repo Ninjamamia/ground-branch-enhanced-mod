@@ -16,17 +16,17 @@ local intelretrieval = {
 	UseReadyRoom = true,
 	UseRounds = true,
 	StringTables = { "gbem/intel_retrieval_enhanced" },
-	
+
 	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022, (c) Ninjamamia, 2023",
 	GameModeType = "PVE",
-	
+
 	PlayerTeams = {
 		BluFor = {
 			TeamId = 1,
 			Loadout = "NoTeam",
 		},
 	},
-	
+
 	Settings = {
 		AiCountMin = {
 			Min = 0,
@@ -412,13 +412,12 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 		ai.CleanUp(self.OpForTeamTag)
 
 		self.TeamExfilWarning = false
-		
+
 		if self.CompletedARound then
+			self.CompletedARound = false
 			self:RandomiseObjectives()
 		end
-		
-		self.CompletedARound = false
-		
+
 		for _, NavBlock in ipairs(self.AllNavBlocks) do
 			actor.SetActive(NavBlock, true)
 		end
@@ -457,7 +456,6 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 		
 	elseif RoundStage == "PostRoundWait" then
 		self.CompletedARound = true
-		
 	end
 end
 
