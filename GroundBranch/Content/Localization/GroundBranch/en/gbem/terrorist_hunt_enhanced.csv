@@ -1,0 +1,17 @@
+Key,SourceString,Comment
+"TerroristHunt","Terrorist Hunt",""
+"objective_EliminateOpFor","Locate and eliminate all threats in the area.","Opsboard"
+"summary_OpForEliminated","All threats were eliminated.","AAR"
+"summary_BluForEliminated","Your unit was wiped out.","AAR"
+"missionsetting_showremaining","Show remaining threats","Opsboard"
+"format_RemainingOpfor","{NumberRemaining} {NumberRemaining}|plural(one=enemy,other=enemies) remaining",formatted string
+"missionsetting_bumrushmode","Bum rush mode","Opsboard"
+"missionsetting_bumrushmode_0","Disabled",
+"missionsetting_bumrushmode_1","Last enemies hunt you",
+"missionsetting_useaihotspots","Enemy hot spots","Opsboard"
+"missionsetting_useaihotspots_0","Disabled",
+"missionsetting_useaihotspots_1","Enabled",
+"missionsetting_aicountmin","Enemy count min", "Minimum number of expected enemy agents"
+"missionsetting_aicountmax","Enemy count max", "Maximum number of expected enemy agents"
+"missionsetting_insertcountmin","Insert point count min", "Minimum number of insertion points"
+"missionsetting_insertcountmax","Insert point count max", "Maximum number of insertion points"
