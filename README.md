@@ -1,16 +1,35 @@
 # Ground Branch Enhanced Mod (gbem)
 
-The goal of this mod is to provide drop in replacements for vanilla game modes, with added
-functionality to bring some more variety and fun to the game.
+## Game modes
 
-The only existing game mode provided (for now) is __*intel retrieval enhanced*__.
+This mod currently provides two enhanced game modes, these are vanilla game modes enhanced with
+added features:
 
-Added functionality are listed below:
+- Intel retrieval enhanced
+- Terrorist hunt enhanced
+
+## Common features
 
 **Actor group randomiser**
 
-Allows to control visibility of an actor, or group of actors, using specific tags in the mission
-editor. See [_Actor group randomiser tags_](#actorgrouprandomiser) section below.
+Allows to control actors visibility using specific tags in the mission editor. See [_Actor group
+randomiser tags_](#actorgrouprandomiser) section below.
+
+**Randomise enemy count**
+
+Two mission settings to control the minimum and maximum number of enemy AI to spawn for the round.
+The actual value will be randomly selected between min and max.
+
+Both defaults to `15`, reproducing vanilla behavior.
+
+**Randomise insert points**
+
+Two mission settings to control the minimum and maximum number of insert points to enable. The
+actual value will be randomly selected between min and max.
+
+Both defaults to `50` so all possible insertion points are used, reproducing vanilla behavior.
+
+## Intel retrieval features
 
 **Delay extract point reveal**
 
@@ -19,13 +38,6 @@ possibilities: before round start, on round start, after collecting intel.
 
 Defaults to `before round start`, reproducing vanilla behavior.
 
-**Randomise insert point**
-
-Two mission settings to control the minimum and maximum number of insert points to enable. The
-actual value will be randomly selected between min and max.
-
-Both defaults to `50` so all possible insertion points are used, reproducing vanilla behavior.
-
 **Multiple laptops**
 
 Two mission settings to control the minimum and maximum number of laptops to place in game. The
@@ -33,9 +45,9 @@ actual value will be randomly selected between min and max, only one laptop will
 
 Both defaults to `1` to only have a single laptop, reproducing vanilla behavior.
 
-## Usage
+# Usage
 
-### Link the replacement script
+## Link the replacement script
 
 You will need to link the _mission_ you want to edit to the replacement _script_ provided.
 
@@ -152,7 +164,7 @@ and download the source code archive of your choice.
 Extract all files to your Ground Branch directory. This should not overwrite any local files since
 the archive does not contain any files of the original game.
 
-### Tested server provider
+## Tested server provider
 
 - [Citadel Servers](https://citadelservers.com/game-servers/ground-branch-game-server-hosting)
 
@@ -162,15 +174,15 @@ The only currently existing way to uninstall is to manually delete all installed
 
 List of installed files can be obtained by listing the release archive content.
 
-## Development
+# Development
 
-### Pull the repo to your existing game directory (Linux)
+## Pull the repo to your existing game directory (Linux)
 
 Since git refuses to clone to a non-empty directory, this procedure has to be
 used to pull the repo into your local game directory.
 
 ```sh
-cd ~/.local/share/Steam/steamapps/common/Ground Branch
+cd '~/.local/share/Steam/steamapps/common/Ground Branch'
 git init
 git remote add origin git@github.com:Ninjamamia/ground-branch-enhanced-mod.git
 git fetch
