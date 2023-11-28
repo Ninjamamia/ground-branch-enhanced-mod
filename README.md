@@ -167,6 +167,7 @@ the archive does not contain any files of the original game.
 ## Tested server provider
 
 - [Citadel Servers](https://citadelservers.com/game-servers/ground-branch-game-server-hosting)
+- [Ping perfect](https://pingperfect.com/gameservers/ground-branch-game-server-hosting-rental.php)
 
 ## Uninstall
 
