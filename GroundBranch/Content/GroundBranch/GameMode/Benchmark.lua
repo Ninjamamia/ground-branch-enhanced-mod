@@ -13,16 +13,10 @@ local benchmark = {
 		},
 	},
 	Settings = {
-		OpForCount = {
-			Min = 1,
-			Max = 50,
-			Value = 30,
-			AdvancedSetting = false,
-		},
-		MapOnly = {
+		AI = {
 			Min = 0,
 			Max = 1,
-			Value = 0,
+			Value = 1,
 			AdvancedSetting = false,
 		},
 		-- This forces the player to spawn as a spectato
@@ -55,16 +49,6 @@ end
 
 
 function benchmark:PreInit()
-	local AllSpawns = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
-	local TotalSpawns = 0
-		
-	for i, SpawnPoint in ipairs(AllSpawns) do
-		TotalSpawns = TotalSpawns + 1 
-	end
-	
-	TotalSpawns = math.min(ai.GetMaxCount(), TotalSpawns)
-	self.Settings.OpForCount.Max = TotalSpawns
-	self.Settings.OpForCount.Value = math.min(self.Settings.OpForCount.Value, TotalSpawns)	
 end
 
 function benchmark:PostInit()
@@ -98,7 +82,7 @@ function benchmark:StartBenchmark()
 		actor.SetActive(NavBlock, true)
 	end
 
-	if self.Settings.MapOnly.Value ~= 1 then
+	if self.Settings.AI.Value == 1 then
 		self:SpawnOpFor()
 	end
 
@@ -109,12 +93,16 @@ end
 function benchmark:SpawnOpFor()
 	local OrderedSpawns = {}
 	local AllSpawns = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
-
+	local SpawnAmount = 25
+	local TotalSpawns = 0
+		
 	for i, SpawnPoint in ipairs(AllSpawns) do
+		TotalSpawns = TotalSpawns + 1 
 		table.insert(OrderedSpawns, SpawnPoint)
 	end
 
-	ai.CreateOverDuration(0.2, self.Settings.OpForCount.Value, OrderedSpawns, self.OpForTeamTag)
+	SpawnAmount = math.min(25, TotalSpawns)		
+	ai.CreateOverDuration(0.2, SpawnAmount, OrderedSpawns, self.OpForTeamTag)
 end
 
 function benchmark:StartEditMission()

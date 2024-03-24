@@ -1,18 +1,40 @@
 local deathmatch = {
+	StringTables = { "Deathmatch" },
+	
+	GameModeAuthor = "(c) BlackFoot Studios, 2021-2023",
+	GameModeType = "PVP FFA",
+	
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
 	UseReadyRoom = true,
 	UseRounds = true,
+	VolunteersAllowed = false,
 	
 	-- Limit dead bodies and dropped items. Not sure we use this any more?
 	MaxDeadBodies = 1,
 	MaxDroppedItems = 1,
 	
-	-- override other values
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+	AllowUnrestrictedRadio = false,
+	AllowUnrestrictedVoice = false,
+	SpectateForceFirstPerson = true,
+	SpectateFreeCam = false,
+	SpectateEnemies = false,
 	
-	StringTables = { "Deathmatch" },
-	
-	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
-	GameModeType = "PVP FFA",
-	-- PVP FFA (Free-for-all) is a new category as of 1033 - player vs player not team vs team
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
+
+	-- not used in FFA
+
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
 
 	Settings = {
 	    -- Allow players to join in progress rounds.
@@ -66,6 +88,10 @@ local deathmatch = {
             AdvancedSetting = true,
         },
 	},
+	
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
 	
 	FragLimitValues = { 0, 3, 5, 10, 20, 30, 50, 100, },
 	-- nicer to have a drop-down menu than to have to fiddle with spinbox for this

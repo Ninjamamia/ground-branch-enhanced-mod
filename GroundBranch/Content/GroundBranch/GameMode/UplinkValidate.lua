@@ -70,7 +70,7 @@ function uplinkvalidate:ValidateLevel()
 			
 				local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
 				if InsertionPointName == "" then
-						table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' has a blank name")
+						table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' has a blank name")
 				else
 									
 					if actor.HasTag(InsertionPoint, "Attackers") then
@@ -78,7 +78,7 @@ function uplinkvalidate:ValidateLevel()
 					elseif actor.HasTag(InsertionPoint, "Defenders") then
 						table.insert(AllDefenderInsertionPointNames, InsertionPointName)
 					else
-						table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' is not tagged as 'Attackers' or 'Defenders'")
+						table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' is not tagged as 'Attackers' or 'Defenders'")
 					end
 				end
 			
@@ -88,7 +88,7 @@ function uplinkvalidate:ValidateLevel()
 					local AssociatedInsertionPointName = gamemode.GetInsertionPointName(PlayerStart)
 					
 					if AssociatedInsertionPointName == "" or  AssociatedInsertionPointName == "None" then
-						table.insert(ErrorsFound, "Player start '" .. actor.GetName(PlayerStart) .. "' has a blank group name")
+						table.insert(ErrorsFound, "Player start '@" .. actor.GetName(PlayerStart) .. "' has a blank group name")
 					elseif InsertionPointName ~= "" and AssociatedInsertionPointName == InsertionPointName then	
 					-- if playerstart is associated with InsertionPoint
 						PlayerStartCount = PlayerStartCount + 1
@@ -98,15 +98,29 @@ function uplinkvalidate:ValidateLevel()
 				-- player insertion point
 				if PlayerStartCount == 0 then
 					table.insert(ErrorsFound, "No player starts provided for insertion point '" .. InsertionPointName .. "'")
-				elseif PlayerStartCount < 8 then
-					table.insert(ErrorsFound, "Fewer than 8 player starts provided for insertion point '" .. InsertionPointName .. "'")
-				elseif PlayerStartCount > 8 then
+				elseif PlayerStartCount < 8 and actor.HasTag(InsertionPoint, "Attackers") then
+					table.insert(ErrorsFound, "Fewer than 8 player starts provided for ATTACKER insertion point '" .. InsertionPointName .. "'")
+				elseif PlayerStartCount < 12 and actor.HasTag(InsertionPoint, "Defenders") then
+					table.insert(ErrorsFound, "Fewer than 12 player starts provided for DEFENDER insertion point '" .. InsertionPointName .. "'")
+				elseif PlayerStartCount > 8 and actor.HasTag(InsertionPoint, "Attackers") then
+					table.insert(ErrorsFound, "More than 8 player starts provided for insertion point '" .. InsertionPointName .. "'")
+				elseif PlayerStartCount > 12 and actor.HasTag(InsertionPoint, "Defenders") then
 					table.insert(ErrorsFound, "More than 8 player starts provided for insertion point '" .. InsertionPointName .. "'")
 				end
 
 			end
 		end
 		
+		-- new stand-alone collision check for player starts
+
+		for i, TestActor in ipairs(AllPlayerStarts) do
+			if actor.IsColliding(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+			end
+			if not ai.IsOnNavMesh(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+			end
+		end
 		
 		if #AllAttackerInsertionPointNames == 0 then
 			table.insert(ErrorsFound, "No insertion points provided for attacking team (-> add 'Attackers' tag to insertion point - team ID is disregarded)")
@@ -132,7 +146,7 @@ function uplinkvalidate:ValidateLevel()
 	else
 		for _, Laptop in ipairs(AllLaptops) do
 			if not self:ActorHasTagInList( Laptop, AllDefenderInsertionPointNames ) then
-				table.insert(ErrorsFound, "Laptop '" .. actor.GetName(Laptop) .. "' does not have a tag corresponding to a defender insertion point")
+				table.insert(ErrorsFound, "Laptop '@" .. actor.GetName(Laptop) .. "' does not have a tag corresponding to a defender insertion point")
 			end
 
 			for __, InsertionPointName in ipairs(AllDefenderInsertionPointNames) do
@@ -149,6 +163,19 @@ function uplinkvalidate:ValidateLevel()
 		end
 	end
 	
+	
+	-- new standalone check on collision for laptops
+
+	local AtLeastOneCollided = false
+	for i, TestActor in ipairs(AllLaptops) do
+		if actor.IsColliding(TestActor) then
+			AtLeastOneCollided = true
+			table.insert(ErrorsFound, "Warning: Laptop '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+	end
+	if AtLeastOneCollided then
+		table.insert(ErrorsFound, "(Make sure to deselect all laptops before running validation as selected actors may incorrectly register as colliding)")
+	end
 	
 	--- phase 3 check spawn protection volumes
 	

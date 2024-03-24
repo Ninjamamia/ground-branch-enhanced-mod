@@ -72,7 +72,7 @@ function hostagerescuevalidate:ValidateLevel()
 			
 				local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
 				if InsertionPointName == "" then
-						table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' has a blank name")
+						table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' has a blank name")
 				else
 										
 					if actor.HasTag(InsertionPoint, "Attackers") then
@@ -84,7 +84,7 @@ function hostagerescuevalidate:ValidateLevel()
 						DefenderInsertionPointLookup[InsertionPointName] = 0
 					else
 						IsDefenderInsertionPoint = false
-						table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' is not tagged as 'Attackers' or 'Defenders'")
+						table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' is not tagged as 'Attackers' or 'Defenders'")
 					end
 				end
 			
@@ -94,7 +94,7 @@ function hostagerescuevalidate:ValidateLevel()
 					local AssociatedInsertionPointName = gamemode.GetInsertionPointName(PlayerStart)
 					
 					if AssociatedInsertionPointName == "" or  AssociatedInsertionPointName == "None" then
-						table.insert(ErrorsFound, "Player start '" .. actor.GetName(PlayerStart) .. "' has a blank group name")
+						table.insert(ErrorsFound, "Player start '@" .. actor.GetName(PlayerStart) .. "' has a blank group name")
 					elseif InsertionPointName ~= "" and AssociatedInsertionPointName == InsertionPointName then	
 					-- if playerstart is associated with InsertionPoint
 						PlayerStartCount = PlayerStartCount + 1
@@ -119,6 +119,17 @@ function hostagerescuevalidate:ValidateLevel()
 						table.insert(ErrorsFound, "More than 8 player starts provided for insertion point '" .. InsertionPointName .. "'")
 					end
 				end
+			end
+		end
+		
+		-- new stand-alone collision check for player starts
+
+		for i, TestActor in ipairs(AllPlayerStarts) do
+			if actor.IsColliding(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+			end
+			if not ai.IsOnNavMesh(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
 			end
 		end
 		
@@ -147,7 +158,7 @@ function hostagerescuevalidate:ValidateLevel()
 		end
 		
 		if not FoundHostageSpawn then
-			table.insert(ErrorsFound, "Could not find matching insertion point for hostage spawn '" .. actor.GetName(HostageSpawn) .. "'")
+			table.insert(ErrorsFound, "Could not find matching insertion point for hostage spawn '@" .. actor.GetName(HostageSpawn) .. "'")
 		end
 	end
 	
@@ -162,6 +173,18 @@ function hostagerescuevalidate:ValidateLevel()
 		-- reset the lookup table for later phases
 	end
 	
+	-- new standalone check on collision for hostage spawns
+	-- MF 2024/1/13 - collision check seems not to work?
+
+	for i, TestActor in ipairs(AllHostageSpawns) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: Hostage spawn '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: Hostage spawn '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+		end
+	end
+	
 	--- phase 3 check spawn protection volumes
 	
 	local AllSPV = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBSpawnProtectionVolume')
@@ -171,7 +194,7 @@ function hostagerescuevalidate:ValidateLevel()
 	
 	for _, SPV in ipairs(AllSPV) do
 		if not gamemode.GetSpawnProtectionVolumeHasNoImmunity(SPV) then
-			table.insert(ErrorsFound, "Spawn protection volume '" .. actor.GetName(SPV) .. "' does not have property 'No Immunity to Enemy' set to true.")
+			table.insert(ErrorsFound, "Spawn protection volume '@" .. actor.GetName(SPV) .. "' does not have property 'No Immunity to Enemy' set to true.")
 		end
 	end
 		
@@ -192,7 +215,7 @@ function hostagerescuevalidate:ValidateLevel()
 			
 			for __, Tag in ipairs(ExtractionPointTags) do
 				if Tag == "None" then
-					table.insert(ErrorsFound, "Extraction point '" .. actor.GetName(ExtractionPoint) .. "' has a blank tag")
+					table.insert(ErrorsFound, "Extraction point '@" .. actor.GetName(ExtractionPoint) .. "' has a blank tag")
 				elseif self:ValueIsInTable( AllAttackerInsertionPointNames, Tag) then
 					FoundAttackerInsertionPointName = true
 					ExtractionPointLookup[ Tag ] = true
@@ -200,7 +223,7 @@ function hostagerescuevalidate:ValidateLevel()
 			end
 			
 			if not FoundAttackerInsertionPointName then
-				table.insert(ErrorsFound, "Extraction point '" .. actor.GetName(ExtractionPoint) .. "' is not associated with an attacker insertion point")
+				table.insert(ErrorsFound, "Extraction point '@" .. actor.GetName(ExtractionPoint) .. "' is not associated with an attacker insertion point")
 			end
 		end
 	end
@@ -227,7 +250,7 @@ function hostagerescuevalidate:ValidateLevel()
 			if not self:ValueIsInTable( AllExtractionPoints, GameTrigger) 
 			and not self:ValueIsInTable( AllHostageSpawns, GameTrigger) then
 				OtherTriggerCount = OtherTriggerCount + 1
-				table.insert(ErrorsFound, "GameTrigger '" .. actor.GetName(GameTrigger) .. "' has no 'HostageTrigger' tag")
+				table.insert(ErrorsFound, "GameTrigger '@" .. actor.GetName(GameTrigger) .. "' has no 'HostageTrigger' tag")
 			end
 		end
 	end
@@ -280,7 +303,7 @@ function hostagerescuevalidate:ValidateLevel()
 		end
 		
 		if not FoundAISpawn then
-			table.insert(ErrorsFound, "Could not find matching insertion point for AI spawn '" .. actor.GetName(AISpawn) .. "'")
+			table.insert(ErrorsFound, "Could not find matching insertion point for AI spawn '@" .. actor.GetName(AISpawn) .. "'")
 		end
 	end
 	
@@ -295,6 +318,17 @@ function hostagerescuevalidate:ValidateLevel()
 		-- reset the lookup table for later phases
 	end
 	
+	-- new stand-alone collision check for AI spawns
+
+	for i, TestActor in ipairs(AllAISpawns) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI spawn point '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI spawn point '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+		end
+	end
+	
 	--- phase 8 check AI guard points
 	
 	local AllGuardPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIGuardPoint')
@@ -306,7 +340,7 @@ function hostagerescuevalidate:ValidateLevel()
 	for _,GuardPoint in ipairs(AllGuardPoints) do
 		GuardPointName = ai.GetGuardPointName(GuardPoint)
 		if GuardPointName == 'None' then
-			table.insert(ErrorsFound, "AI guard point '" .. actor.GetName(GuardPoint) .. "' has group name set to None")
+			table.insert(ErrorsFound, "AI guard point '@" .. actor.GetName(GuardPoint) .. "' has group name set to None")
 		else
 			if GuardPointNames[GuardPointName] == nil then
 				GuardPointNames[GuardPointName] = false
@@ -317,6 +351,62 @@ function hostagerescuevalidate:ValidateLevel()
 
 	if #AllGuardPoints == 0 then
 		table.insert(ErrorsFound, "Warning: no AI guard points found")
+	end
+	
+	-- new stand-alone collision check for guardpoints
+
+	for i, TestActor in ipairs(AllGuardPoints) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI guard point '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI guard point '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+		end
+	end
+	
+	---- phase 9: check patrol routes
+	local AllPatrolRoutes = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIPatrolRoute')
+	if #AllPatrolRoutes == 0 then
+		table.insert(ErrorsFound, "Warning: no AI patrol routes found")
+	end
+
+	-- new stand-alone collision check for patrol routes
+
+	for i, TestActor in ipairs(AllPatrolRoutes) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI patrol route '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI patrol route '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+		end
+	end
+	
+	-- new!! check line of sight between (centre of) patrol route actors
+	local PatrolRoutesChecked = {}
+	local IgnoreActors = {}
+	
+	-- create ignore list containing all AI spawns and all AI patrol routes. Not going to be super efficient but necessary.
+	-- (AI spawns are often placed near/between patrol points)
+	for _, Actor in ipairs(AllAISpawns) do
+		table.insert(IgnoreActors, Actor)
+	end
+	for _, Actor in ipairs(AllPatrolRoutes) do
+		table.insert(IgnoreActors, Actor)
+	end
+
+	for _, PatrolRouteActor in ipairs(AllPatrolRoutes) do
+		local LinkedPatrolRouteActors = gameplaystatics.GetPatrolRouteLinkedActors(PatrolRouteActor)
+		--print("Checking " .. #LinkedPatrolRouteActors .. " connections for patrol route '" .. actor.GetName(PatrolRouteActor) .. "'")
+		PatrolRoutesChecked[actor.GetName(PatrolRouteActor)] = true
+		
+		for __, LinkedPatrolRouteActor in ipairs(LinkedPatrolRouteActors) do
+			if PatrolRoutesChecked[actor.GetName(LinkedPatrolRouteActor)] == nil then
+				local VisibilityTrace = gameplaystatics.TraceVisible( actor.GetLocation(PatrolRouteActor), actor.GetLocation(LinkedPatrolRouteActor), IgnoreActors, true) 
+				if VisibilityTrace ~= nil then
+					table.insert(ErrorsFound, "AI patrol route '@" .. actor.GetName(PatrolRouteActor) .. "' appears not to have clear sight of patrol route '" .. actor.GetName(LinkedPatrolRouteActor) .. "'")
+				end
+			end
+		end
 	end
 	
 	return ErrorsFound

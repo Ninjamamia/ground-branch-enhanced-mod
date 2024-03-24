@@ -7,49 +7,27 @@ function deathmatchvalidate:ValidateLevel()
 
 	local ErrorsFound = {}
 	
-	local PlayerStarts = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBPlayerStart')
-	if #PlayerStarts < 1 then
+	-- first deal with player starts
+	
+	local AllPlayerStarts = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBPlayerStart')
+	if #AllPlayerStarts < 1 then
 		table.insert(ErrorsFound, "No player starts were found. You need ideally 16 or so.")
-	elseif #PlayerStarts < 16 then
-		table.insert(ErrorsFound, "Only " .. #PlayerStarts .. " player starts were found. This is probably too few.")
+	elseif #AllPlayerStarts < 16 then
+		table.insert(ErrorsFound, "Only " .. #AllPlayerStarts .. " player starts were found. This is probably too few.")
 	end
 
-	local AISpawnPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
-	if #AISpawnPoints < 1 then
-		table.insert(ErrorsFound, "No AI spawn points found, so can't spawn AI to make up numbers.")
-	elseif #AISpawnPoints < 8 then
-		table.insert(ErrorsFound, "Only " .. #AISpawnPoints .. " AI spawn points found. Ideally provide 8 or so.")
-	end
-	
-	local SquadIdList = {}
-	
-	if #AISpawnPoints>0 then
-		for _, SpawnPoint in ipairs(AISpawnPoints) do
-			SpawnInfo = ai.GetSpawnPointInfo(SpawnPoint)
+	-- new stand-alone collision check for player starts
 
-			if SquadIdList[SpawnInfo.SquadId] == nil then
-				SquadIdList[SpawnInfo.SquadId] = 1
-			else
-				SquadIdList[SpawnInfo.SquadId] = SquadIdList[SpawnInfo.SquadId] + 1
-			end
-
-			if actor.GetTeamId(SpawnPoint) ~= 100 then
-				table.insert(ErrorsFound, "AI spawn point '" .. actor.GetName(SpawnPoint) .. "' is not assigned to team 100, which all AI spawn points should be")
-			end
+	for i, TestActor in ipairs(AllPlayerStarts) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
 		end
-	end
-
-
-	for SquadId, Count in pairs(SquadIdList) do
-		if Count > 1 then
-			table.insert(ErrorsFound, "Multiple (" .. Count .. ") spawn points assigned to Squad ID " .. SquadId .. ". Each spawnpoint should be given a different Squad ID")
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
 		end
 	end
 	
-	local InsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBPInsertionPoint')
-	if #InsertionPoints > 0 then
-		table.insert(ErrorsFound, "Insertion points are not used in this game mode")
-	end
+	-- AI spawn points are now superseded
 
 	return ErrorsFound
 end

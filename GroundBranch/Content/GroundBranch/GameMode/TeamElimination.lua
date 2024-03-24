@@ -1,16 +1,34 @@
 local teamelimination = {
-	UseReadyRoom = true,
-	UseRounds = true,
 	StringTables = { "TeamElimination" },
 	
+	GameModeAuthor = "(c) BlackFoot Studios, 2021-2023",
+	GameModeType = "PVP",
+	
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+
 	-- Limit dead bodies and dropped items.
 	MaxDeadBodies = 8,
 	MaxDroppedItems = 32,
 	
-	-- override other values
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
 	
-	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
-	GameModeType = "PVP",
+	AllowUnrestrictedRadio = false,
+	AllowUnrestrictedVoice = false,
+	SpectateForceFirstPerson = true,
+	SpectateFreeCam = false,
+	SpectateEnemies = false,
+
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
 	
 	PlayerTeams = {
 		Blue = {
@@ -22,6 +40,11 @@ local teamelimination = {
 			Loadout = "Red",
 		},
 	},
+	
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
+	
 	Settings = {
 		RoundTime = {
 			Min = 5,
@@ -47,7 +70,21 @@ local teamelimination = {
 			Value = 1,
 			AdvancedSetting = true,
 		},
-        -- fill in with AI if less than this value
+		BalanceTeams = {
+			Min = 0,
+			Max = 3,
+			Value = 0,
+			AdvancedSetting = false,
+		},
+		-- settings: 
+		-- 0 - off
+		-- 1 - light touch
+		-- 2 - aggressive
+		-- 3 - always
+		-- move players around to even up teams. For autobalance 'always', if an odd number of players, give the 1 extra to the attackers each round
+		-- (pick a random player to move but try to avoid moving the same person twice or more in a row)
+		
+        -- fill in with AI if less than this value:
 		MinPlayers = {
 			Min = 1,
 			Max = 10,
@@ -61,6 +98,10 @@ local teamelimination = {
             AdvancedSetting = true,
         },		
 	},
+	
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
 	
 	RoundResult = "",
 	InsertionPoints = {},
@@ -121,34 +162,55 @@ local teamelimination = {
 	CompletedARound = true,
 	-- used to stop readying up and readying down causing spawns to randomise
 	
+	-- recommended autobalance defaults
+	AutoBalanceLightTouchSetting = 0.19,
+	NumberOfPastTeamMovementsToTrack = 6,
+	
 	DebugMode = false,
 	-- allows game to be started with only one player on server, and a few other tweaks for testing
 }
-
 
 
 function teamelimination:PreInit()
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
 
 	-- big simplification MF 2022/2/2 to do away with internal representations of groups (but these are still checked when picking spawns)
-	-- and Team IDs of insertion points are now disregarded, to ensure maximum spawn randomisation
+	-- and Team IDs of insertion points are now disregarded (except for fixed spawn maps like arena and paintball), to ensure maximum spawn randomisation
 	
 	self.bSpawnsAreFixed = false
 	
 	if #AllInsertionPoints == 2 then
-		if actor.GetTeamId(AllInsertionPoints[1]) <= 2 and actor.GetTeamId(AllInsertionPoints[2]) <= 2 then
-			-- very specific case with 2 spawns with fixed team IDs - for maps like Paintball
+		if actor.GetTeamId(AllInsertionPoints[1]) == self.PlayerTeams.Blue.TeamId and actor.GetTeamId(AllInsertionPoints[2]) == self.PlayerTeams.Red.TeamId then
+			-- very specific case with 2 spawns with fixed team IDs 1 and 2 - for maps like Paintball
 			self.bSpawnsAreFixed = true
+			
+			self.CurrentInsertionPoints [ self.PlayerTeams.Blue.TeamId ] = AllInsertionPoints[1]
+			self.CurrentInsertionPoints [ self.PlayerTeams.Red.TeamId ]  = AllInsertionPoints[2]
 		end
+		if actor.GetTeamId(AllInsertionPoints[1]) == self.PlayerTeams.Red.TeamId and actor.GetTeamId(AllInsertionPoints[2]) == self.PlayerTeams.Blue.TeamId then
+			-- very specific case with 2 spawns with fixed team IDs 1 and 2 - for maps like Paintball
+			self.bSpawnsAreFixed = true
+			
+			self.CurrentInsertionPoints [ self.PlayerTeams.Blue.TeamId ] = AllInsertionPoints[2]
+			self.CurrentInsertionPoints [ self.PlayerTeams.Red.TeamId ]  = AllInsertionPoints[1]
+		end
+	end
+	
+	if self.bSpawnsAreFixed then
+		self:ActivateInsertionPoints()
 	end
 	
 	self.InsertionPoints = AllInsertionPoints
 end
 
+
 function teamelimination:PostInit()
 	gamemode.AddGameObjective(self.PlayerTeams.Blue.TeamId, "EliminateRed", 1)
 	gamemode.AddGameObjective(self.PlayerTeams.Red.TeamId, "EliminateBlue", 1)
+	
+	gamemode.ResetBalanceTeams(self.NumberOfPastTeamMovementsToTrack, self.AutoBalanceLightTouchSetting)
 end
+
 
 function teamelimination:PlayerInsertionPointChanged(PlayerState, InsertionPoint)
 	if InsertionPoint == nil then
@@ -157,6 +219,7 @@ function teamelimination:PlayerInsertionPointChanged(PlayerState, InsertionPoint
 		timer.Set("CheckReadyUp", self, self.CheckReadyUpTimer, 0.25, false);
 	end
 end
+
 
 function teamelimination:PlayerReadyStatusChanged(PlayerState, ReadyStatus)
 	if ReadyStatus ~= "DeclaredReady" then
@@ -169,7 +232,6 @@ function teamelimination:PlayerReadyStatusChanged(PlayerState, ReadyStatus)
 		gamemode.EnterPlayArea(PlayerState)
 	end
 end
-
 
 
 function teamelimination:CheckReadyUpTimer()
@@ -190,6 +252,7 @@ function teamelimination:CheckReadyUpTimer()
 		
 		if ShouldStartRound then
 			if BlueReady + RedReady >= gamemode.GetPlayerCount(true) then
+				self:DoThingsAtEndOfReadyCountdown()
 				gamemode.SetRoundStage("PreRoundWait")
 			else
 				gamemode.SetRoundStage("ReadyCountdown")
@@ -197,6 +260,7 @@ function teamelimination:CheckReadyUpTimer()
 		end
 	end
 end
+
 
 function teamelimination:CheckReadyDownTimer()
 	if gamemode.GetRoundStage() == "ReadyCountdown" then
@@ -209,6 +273,7 @@ function teamelimination:CheckReadyDownTimer()
 		end
 	end
 end
+
 
 function teamelimination:OnRoundStageSet(RoundStage)
 	if RoundStage == "WaitingForReady" then
@@ -275,11 +340,12 @@ function teamelimination:OnRoundStageSet(RoundStage)
 end
 
 
-
 function teamelimination:OnRoundStageTimeElapsed(RoundStage)
+	if RoundStage == "ReadyCountdown" then
 
+		self:DoThingsAtEndOfReadyCountdown()
 
-	if RoundStage == "PreRoundWait" then
+	elseif RoundStage == "PreRoundWait" then
 	
 	-- wait till the end of PreRoundWait rather than doing this at the start, 
 	-- so as to make sure all players have spawned in first
@@ -290,7 +356,6 @@ function teamelimination:OnRoundStageTimeElapsed(RoundStage)
 		self.PlayerTriedSpawningList = {}
 	
 		---- set up player lives
-		--local AllPlayers = gamemode.GetPlayerListByLives(255, 1, true)
 		local AllPlayers = gamemode.GetPlayerList(255, true)
 		
 		for i = 1, #AllPlayers do
@@ -298,12 +363,8 @@ function teamelimination:OnRoundStageTimeElapsed(RoundStage)
 			self:AddPlayerToDeathList(AllPlayers[i])
 			-- get this set up for all players at start, arbitrary order
 			
-			--table.insert(self.PlayerTriedSpawningList, AllPlayers[i])
-			-- add to players we tried to spawn (for initial setup)
-			
 			player.SetLives(AllPlayers[i], 1 + self.Settings.PlayerReinforcements.Value)
 			--print("----setting lives for player " .. i)
-			
 			
 			if self.Settings.PlayerReinforcements.Value > 0 then
 				player.SetAllowedToRestart(AllPlayers[i], true)
@@ -312,7 +373,6 @@ function teamelimination:OnRoundStageTimeElapsed(RoundStage)
 			end
 		end
 		
-		--print("OnRoundStageTimeElapsed: Setting up team tickets")
 		---- set up team tickets
 		self.TeamReinforcements[ self.PlayerTeams.Blue.TeamId ] = self.Settings.TeamReinforcements.Value
 		self.TeamReinforcements[ self.PlayerTeams.Red.TeamId  ] = self.Settings.TeamReinforcements.Value
@@ -334,28 +394,17 @@ function teamelimination:OnRoundStageTimeElapsed(RoundStage)
 end
 
 
-
-
 function teamelimination:DisplayTicketsTimer()
 	gamemode.BroadcastGameMessage("Team reinforcements remaining  -  RED  " .. self.TeamReinforcements[self.PlayerTeams.Red.TeamId] .. "  :  " .. self.TeamReinforcements[self.PlayerTeams.Blue.TeamId] .. "  BLUE", "Engine", -self.TicketDisplayUpdateInterval)
 	-- negative display duration -> flush all messages first then display for (abs) this amount of time (avoids fade/message stack up)
 end
 
 
-
 function teamelimination:OnCharacterDied(Character, CharacterController, KillerController)
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
-		if CharacterController ~= nil then
+		if CharacterController ~= nil and not ai.IsAI(CharacterController) then
 			local PlayerLives = player.GetLives(CharacterController)
 			local PlayerTeam = actor.GetTeamId(Character)
-			-- does this need playerstate instead?
-			
-			-- first test whether spawnkilled
-			-- @@@ currently not a thing with respawning at teammates
-			
-			--- next see if we can take a ticket
-			
-			--print ("----player died, has " .. PlayerLives .. " lives.")
 			
 			if PlayerTeam == nil then
 				print("PlayerTeam unexpectedly nil")
@@ -389,7 +438,6 @@ function teamelimination:OnCharacterDied(Character, CharacterController, KillerC
 					PlayerLives = PlayerLives - 1
 		
 					player.SetLives(CharacterController, PlayerLives)
-					--print("----reducing lives by 1")
 				end
 			end
 			
@@ -403,7 +451,6 @@ function teamelimination:OnCharacterDied(Character, CharacterController, KillerC
 				if self.PlayerTriedSpawningList[i] == KilledPlayerState then
 					table.remove(self.PlayerTriedSpawningList, i)
 					-- remove player from list of players who tried spawning if they die (which they can't do unless they spawned)
-					--print("----Removing player from PlayerTriedSpawningList at index " .. i)
 				end
 			end
 
@@ -433,7 +480,6 @@ function teamelimination:OnCharacterDied(Character, CharacterController, KillerC
 end
 
 
-
 function teamelimination:PlayerBecomesSpectator(Player)
 	--print ("----PlayerBecomesSpectator() called")
 
@@ -453,10 +499,7 @@ function teamelimination:PlayerEnteredReadyRoom(Player)
 	
 	if RoundStage == 'InProgress'
 	or RoundStage == 'PreRoundWait' then
-		--timer.Set("CheckEndRound", self, self.CheckEndRoundTimer, 1.0, false);
 		self:CheckEndRoundTimer()
-		--print("----PlayerEnteredReadyRoom(): completed CheckEndRoundTimer() check")
-		--print("----current RoundStage: " .. gamemode.GetRoundStage())
 		-- we can't put this on a timer because the game mode immediately resets to WaitingForReady
 	end
 end
@@ -491,8 +534,6 @@ function teamelimination:AddPlayerToDeathList(Player)
 end
 
 
-
-
 function teamelimination:CheckEndRoundTimer()
 	local BluePlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.Blue.TeamId, 1, false)
 	local RedPlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.Red.TeamId, 1, false)
@@ -520,26 +561,30 @@ function teamelimination:CheckEndRoundTimer()
 end
 
 
-
 function teamelimination:GetSpawnInfo(PlayerState)
-	-- this function is called to get alternative spawn location and rotation (was provided for DTAS)
 	
-	--print("----called GetSpawnInfo()")
+	-- KRIS 2024/01/16 - use whatever insertion point they selected.
+	if self.bSpawnsAreFixed then
+		return nil
+	end
+	-- KRIS
+	
+	print("GetSpawnInfo() called")
 	
 	if self.StillSpawningAtInsertionPoints then
-		return nil
+		return self:GetSpawnInfoDefault(PlayerState)
 		-- let the normal spawning routine take place at insertion point
 	end
 	
 	for _, PlayerWeTriedToSpawnAlready in ipairs( self.PlayerTriedSpawningList ) do
 		if PlayerWeTriedToSpawnAlready == PlayerState then
 			print("previous spawn failed - falling back to insertion point")
-			return nil
+			return self:GetSpawnInfoDefault(PlayerState)
 			-- fall back on insertion point, because we already tried to do custom spawn and failed
 		end
 	end
-	-- ^^^ actually this will not work. In DTAS there was a way to detect if a player failed to spawn (still stuck in RR)
-	-- here I think the player will simply come back to life where they died?
+
+	print("GetSpawnInfo(): failed to find normal spawn")
 	
 	table.insert( self.PlayerTriedSpawningList, PlayerState )
 	-- if we get a spawn info request and this player is already on the list, we already tried spawning and it failed
@@ -583,15 +628,13 @@ function teamelimination:GetSpawnInfo(PlayerState)
 	
 	if Result == nil then
 		player.ShowGameMessage( PlayerState, "ReturningToInsertionPoint", "Lower", self.SpawningMessageDuration)
-		return nil
+		return self:GetSpawnInfoDefault(PlayerState)
 	else
 		player.ShowGameMessage( PlayerState, "InsertingNextToTeamMate", "Lower", self.SpawningMessageDuration)
 	end
 	
     return Result;
 end
-
-
 
 
 function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
@@ -601,7 +644,6 @@ function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
 	
 	local CandidateTeamMates1 = {}
 	local CandidateTeamMates2 = {}
-	-- this is lousy but I'm tired
 		
 	local SameTeam = gamemode.GetPlayerListByLives(CurrentTeamId, 1, true)
 	local OtherTeam = gamemode.GetPlayerListByLives(3 - CurrentTeamId, 1, true)
@@ -623,7 +665,6 @@ function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
 				
 				if not TooCloseToEnemy then
 					table.insert(CandidateTeamMates1, SameTeamPlayer)
-					--print("----adding candidate teammate (not too close to enemy)")
 				end
 			end
 		end
@@ -637,13 +678,12 @@ function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
 							
 							if self:GetDistanceBetweenPlayerAndLocation( SameTeamPlayer, DeathLocation, true ) < self.MinimumSpawnDistanceToDeathLocation  then
 								-- we're working in units of metres, not UE units (cm)
-									TooCloseToDeathLocation = true
+								TooCloseToDeathLocation = true
 							end
 						end
 						
 						if not TooCloseToDeathLocation then
 							table.insert(CandidateTeamMates2, SameTeamPlayer)
-							--print("----re-adding candidate teammate (not too close to death location)")
 						end
 					end
 		else
@@ -652,7 +692,6 @@ function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
 		end		
 	else
 		-- never do teammate respawns
-		--player.ShowGameMessage( CurrentPlayer, "RespawningAtInsertion", "Lower", self.SpawningMessageDuration)
 		return nil
 	end
 
@@ -702,16 +741,7 @@ function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
 			return nil
 		else
 			local Result = {}
-			
-			--local VectorToSpawnCentre = self:VectorSubtract( SelectedPlayerLocation, CorrectedSpawnLocation )
-			--local VectorAngle = math.deg ( math.atan( VectorToSpawnCentre.y, VectorToSpawnCentre.x ) )
-			--VectorAngle = math.fmod( 450 + VectorAngle, 360 )
-			
-			--Result.Rotation = {}
-			--Result.Rotation.Pitch = 0.0
-			--Result.Rotation.Yaw = VectorAngle
-			--Result.Rotation.Roll = 0.0
-			
+						
 			Result.Rotation = self:GetRandomUprightRotation()
 			Result.Location = CorrectedSpawnLocation
 			-- not working, never mind
@@ -731,9 +761,6 @@ function teamelimination:GetNextSpawnLocation(CurrentTeamId, CurrentPlayer)
 	return nil
 		
 end
-
-
-
 
 
 function teamelimination:GetBestTeammateRespawnIndex( CandidateTeamMates, CurrentTeamId )
@@ -841,9 +868,6 @@ function teamelimination:GetBestTeammateRespawnIndex( CandidateTeamMates, Curren
 end
 
 
-
-
-
 function teamelimination:IsValidSpawn(SpawnLocation)
 	-- test using Kris' GB-specific spawn validation/moving function
 
@@ -874,7 +898,6 @@ function teamelimination:IsValidSpawn(SpawnLocation)
 end
 
 
-
 function teamelimination:GetCorrectedValidatedSpawnLocation( PlayerLocation, PlayerCapsuleHalfHeight, PlayerCapsuleRadius )
 	if PlayerLocation ~= nil then
 		PlayerLocation.z = PlayerLocation.z + PlayerCapsuleHalfHeight
@@ -883,7 +906,6 @@ function teamelimination:GetCorrectedValidatedSpawnLocation( PlayerLocation, Pla
 
 	return gameplaystatics.GetValidatedSpawnLocation( PlayerLocation, PlayerCapsuleHalfHeight, PlayerCapsuleRadius )
 end
-
 
 
 function teamelimination:DidWeActuallyValidateLocation( ValidationResult, PlayerLocation )
@@ -908,9 +930,6 @@ function teamelimination:DidWeActuallyValidateLocation( ValidationResult, Player
 		return false
 	end
 end
-
-
-
 
 
 function teamelimination:GetDistanceBetweenPlayers(Player1, Player2, TwoDimensional)
@@ -946,8 +965,6 @@ function teamelimination:GetDistanceBetweenPlayers(Player1, Player2, TwoDimensio
 end
 
 
-
-
 function teamelimination:GetDistanceBetweenPlayerAndLocation(Player1, Location2, TwoDimensional)
 -- returns distance in metres between the player and location
 
@@ -979,7 +996,6 @@ function teamelimination:GetDistanceBetweenPlayerAndLocation(Player1, Location2,
 end
 
 
-
 function teamelimination:VectorSubtract( Vector1, Vector2 )
 	local Result = {}
 
@@ -996,7 +1012,6 @@ function teamelimination:VectorSubtract( Vector1, Vector2 )
 
 	return Result
 end
-
 
 
 function teamelimination:GetRandomUprightRotation()
@@ -1030,9 +1045,14 @@ function teamelimination:NumMatchingTags( ActorToCheck, TagList )
 end
 
 
-function teamelimination:RandomiseInsertionPoints(TargetInsertionPoints)
-	if #TargetInsertionPoints < 2 then
-		print("Error: #TargetInsertionPoints < 2")
+function teamelimination:RandomiseInsertionPoints()
+
+	if self.bSpawnsAreFixed then
+		return
+	end
+
+	if #self.InsertionPoints < 2 then
+		print("Error: #self.InsertionPoints < 2")
 		return
 	end
 
@@ -1043,13 +1063,13 @@ function teamelimination:RandomiseInsertionPoints(TargetInsertionPoints)
 	local RedSelectionOfInsertionPoints = {}
 
 	if self.LastBlueSpawn ~= nil then
-		for _, InsertionPoint in ipairs(TargetInsertionPoints) do
+		for _, InsertionPoint in ipairs(self.InsertionPoints) do
 			if InsertionPoint ~= self.LastBlueSpawn then
 				table.insert(BlueSelectionOfInsertionPoints, InsertionPoint)
 			end
 		end
 	else
-		BlueSelectionOfInsertionPoints = TargetInsertionPoints
+		BlueSelectionOfInsertionPoints = self.InsertionPoints
 	end
 	-- exclude from the list of insertion points the point we picked last time
 
@@ -1057,7 +1077,7 @@ function teamelimination:RandomiseInsertionPoints(TargetInsertionPoints)
 	local BlueSpawn = BlueSelectionOfInsertionPoints [ BlueIndex ]
 	local BlueTags = actor.GetTags(BlueSpawn)
 
-	for _, InsertionPoint in ipairs(TargetInsertionPoints) do
+	for _, InsertionPoint in ipairs(self.InsertionPoints) do
 		if InsertionPoint ~= BlueSpawn and self:NumMatchingTags(InsertionPoint, BlueTags) <= 1 then
 		-- list of possible spawns for red excludes currently picked blue spawn and any spawns in the same group as it
 		-- (same group defined as any actors having more than one tag in common - all mission actors share a mission object identifier tag)
@@ -1098,30 +1118,23 @@ function teamelimination:RandomiseInsertionPoints(TargetInsertionPoints)
 		
 	end
 
-	self.LastRedSpawn = RedSpawn
 	self.LastBlueSpawn = BlueSpawn
+	self.LastRedSpawn = RedSpawn
 
 	self.CurrentInsertionPoints [ self.PlayerTeams.Blue.TeamId ] = BlueSpawn
 	self.CurrentInsertionPoints [ self.PlayerTeams.Red.TeamId ]  = RedSpawn
 	-- store the actual insertion point actor references
 	
-	for _, InsertionPoint in ipairs(TargetInsertionPoints) do
-		if InsertionPoint == BlueSpawn then
-			actor.SetActive(InsertionPoint, true)
-			actor.SetTeamId(InsertionPoint, self.PlayerTeams.Blue.TeamId)
-		elseif InsertionPoint == RedSpawn then
-			actor.SetActive(InsertionPoint, true)
-			actor.SetTeamId(InsertionPoint, self.PlayerTeams.Red.TeamId)
-		else
-			actor.SetActive(InsertionPoint, false)
-			actor.SetTeamId(InsertionPoint, 255)
-		end
+	if self.Settings.BalanceTeams.Value == 0 or self.bSpawnsAreFixed then
+		-- no team balancing, so activate spawns (actually we won't get here if bSpawnsAreFixed is true)
+		self:ActivateInsertionPoints()
+	else
+		-- new in v1034: team balancing may give players knowledge of other team spawns, so hide them (and use GetSpawnInfo() to set spawn locations)
+	
+		-- team balancing is on, so deactivate all spawns (causes 'click here to join' ops board setting)
+		self:DeactivateInsertionPoints()
 	end
-	
-	
-	
 end
-
 
 
 function teamelimination:ShouldCheckForTeamKills()
@@ -1133,12 +1146,144 @@ end
 
 
 function teamelimination:PlayerCanEnterPlayArea(PlayerState)
-	if player.GetInsertionPoint(PlayerState) ~= nil then
-		return true
-	end
-	return false
+	-- as of v1034, just return true (sometimes insertion points may not be assigned)
+	return true
 end
 
+--------------------------
+-- new functions in v1034:
+
+function teamelimination:OnRandomiseObjectives()
+	-- new in v1034
+	
+	self:RandomiseInsertionPoints()
+end
+
+
+function teamelimination:CanRandomiseObjectives()
+	-- new in v1034
+	
+	-- can randomise if spawns aren't hidden (i.e. if auto balance teams is not enabled)
+	return (self.Settings.BalanceTeams.Value == 0 and not self.bSpawnsAreFixed)
+end
+
+
+function teamelimination:GetSpawnInfoDefault(PlayerState)
+	-- GetSpawnInfo() already created and is a bit complex
+
+	if PlayerState == nil then
+		print("teamelimination:GetSpawnInfoDefault(): PlayerState was nil")
+	end
+
+	local PlayerTeam = actor.GetTeamId(PlayerState)
+	
+	if PlayerTeam == nil then
+		print("teamelimination:GetSpawnInfoDefault(): player team for player '" .. player.GetName(PlayerState) .. "' was unexpectedly nil")
+	elseif PlayerTeam == self.PlayerTeams.Blue.TeamId then 
+		return self.CurrentInsertionPoints [ self.PlayerTeams.Blue.TeamId ]
+	elseif PlayerTeam == self.PlayerTeams.Red.TeamId then 
+		return self.CurrentInsertionPoints [ self.PlayerTeams.Red.TeamId ]
+	else
+		print("teamelimination:GetSpawnInfoDefault(): player team for player '" .. player.GetName(PlayerState) .. "' was not recognised (" .. PlayerTeam .. ")")
+	end
+	
+	return nil
+end
+
+
+function teamelimination:GiveEveryoneReadiedUpStatus()
+	-- anyone who is waiting to ready up (in ops room) is assigned ReadiedUp status (just keep life simple)
+
+	local EveryonePlayingList = gamemode.GetPlayerListByStatus(255, "WaitingToReadyUp", true)
+
+	if #EveryonePlayingList > 0 then
+		for _, Player in ipairs(EveryonePlayingList) do
+			player.SetReadyStatus(Player, "DeclaredReady")
+		end
+	end
+end
+
+
+function teamelimination:ActivateInsertionPoints()
+	-- now make the insertion points live, so that PrepLatercomers() etc will work
+	local BlueSpawn = self.CurrentInsertionPoints [ self.PlayerTeams.Blue.TeamId ] 
+	local RedSpawn = self.CurrentInsertionPoints [ self.PlayerTeams.Red.TeamId ]
+	
+	for _, InsertionPoint in ipairs(self.InsertionPoints) do
+		if InsertionPoint == BlueSpawn then
+			actor.SetActive(InsertionPoint, true)
+			actor.SetTeamId(InsertionPoint, self.PlayerTeams.Blue.TeamId)
+		elseif InsertionPoint == RedSpawn then
+			actor.SetActive(InsertionPoint, true)
+			actor.SetTeamId(InsertionPoint, self.PlayerTeams.Red.TeamId)
+		else
+			actor.SetActive(InsertionPoint, false)
+			actor.SetTeamId(InsertionPoint, 255)
+		end
+	end
+end
+
+
+function teamelimination:DeactivateInsertionPoints()
+	if self.bSpawnsAreFixed then
+		print("Error: teamelimination:DeactivateInsertionPoints() called while self.bSpawnsAreFixed")
+		return
+	end
+
+	for _, InsertionPoint in ipairs(self.InsertionPoints) do
+		actor.SetActive(InsertionPoint, false)
+		actor.SetTeamId(InsertionPoint, 255)
+	end
+end
+
+
+function teamelimination:DoThingsAtEndOfReadyCountdown()
+	--	called from OnRoundStageTimeElapsed() and CheckReadyUpTimer()
+	
+	-- only activate insertion points at this stage if they are not previously activated (will wipe insertion point selections?)
+	if self.Settings.BalanceTeams.Value ~= 0 and not self.bSpawnsAreFixed then
+		self:ActivateInsertionPoints()
+	end
+
+	self:GiveEveryoneReadiedUpStatus()
+	-- do this before balancing teams
+	
+	self:BalanceTeams()
+end
+
+
+function teamelimination:BalanceTeams() 
+	-- new in v1034
+	-- ideally teams are equal (ideal team size difference = 0)
+
+	gamemode.BalanceTeams(self.PlayerTeams.Blue.TeamId, self.PlayerTeams.Red.TeamId, 0, self.Settings.BalanceTeams.Value)
+	-- AttackingTeamId, DefendingTeamId, IdealTeamSizeDifference, BalancingAggression
+end
+
+
+function teamelimination:OnMissionSettingsChanged(ChangedSettingsTable)
+	-- NB this may be called before some things are initialised
+	-- need to avoid infinite loops by setting new mission settings
+	
+	if gamemode.GetRoundStage() ~= 'WaitingForReady' then
+		-- new thing 2023/3/1 because changing time during mission might cause this to be called (bad)
+		print("teamelimination:OnMissionSettingsChanged(): not called during WaitingForReady, so ignored")
+		return
+	end
+
+	if ChangedSettingsTable['BalanceTeams'] ~= nil then
+		-- show or hide spawns depending on whether we are balancing teams (0 = not). If fixed spawns, no need to hide. They are known to both teams.
+		
+		if self.Settings.BalanceTeams.Value == 0 or self.bSpawnsAreFixed then
+			self:ActivateInsertionPoints()
+		else
+			self:DeactivateInsertionPoints()
+		end
+	end
+end
+
+-- end new functions in v1034
+-----------------------------
 
 function teamelimination:LogOut(Exiting)
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
@@ -1164,7 +1309,5 @@ function teamelimination:LogOut(Exiting)
 		end
 	end
 end
-
-
 
 return teamelimination

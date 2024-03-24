@@ -14,11 +14,16 @@ local hostagerescue = {
 	-- and helping us deliver the finished product.
 
 	---------------------------------------------
-	----- Game Rules ----------------------------
+	----- Game Mode Properties ------------------
 	---------------------------------------------
 
 	UseReadyRoom = true,
 	UseRounds = true,
+	VolunteersAllowed = true,	
+	
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
 
 	AllowUnrestrictedRadio = false,
 	AllowUnrestrictedVoice = false,
@@ -42,7 +47,7 @@ local hostagerescue = {
 	},
 	
 	---------------------------------------------
-	---- Game Settings --------------------------
+	---- Mission Settings -----------------------
 	---------------------------------------------
 	
 	Settings = {
@@ -638,10 +643,11 @@ function hostagerescue:DoThingsAtEndOfReadyCountdown()
 
 		print("DoThingsAtEndOfReadyCountdown() called")
 	
-		if self.RandomDefenderInsertionPoint ~= nil then
-			-- set defender insertion point true so PrepLatecomer() will work for defenders
-			actor.SetActive(self.RandomDefenderInsertionPoint, true)
-		end
+		--if self.RandomDefenderInsertionPoint ~= nil then
+		--	-- set defender insertion point true so PrepLatecomer() will work for defenders
+		--	actor.SetActive(self.RandomDefenderInsertionPoint, true)
+		--end
+		self:ActivateDefenderInsertionPoints()
 	
 		self:GiveEveryoneReadiedUpStatus()
 		-- do this before balancing teams
@@ -738,7 +744,7 @@ function hostagerescue:OnRoundStageSet(RoundStage)
 		gamemode.SetRoundStageTime(DefenderSetupTime)
 		self:FreezeTeam(self.AttackingTeam.TeamId, DefenderSetupTime)
 		
-		self:DisableWeaponsForAll()
+		self:DisableWeaponsForAll("SetupRound")
 				
 		gamemode.SetDefaultRoundStageTime("InProgress", math.ceil(self.Settings.RoundTime.Value * self.BuildingAssaultTimeMultiple) )
 		-- need to update this as ops board setting may have changed - have to do this before RoundStage InProgress to be effective
@@ -755,7 +761,7 @@ function hostagerescue:OnRoundStageSet(RoundStage)
 		gamemode.SetRoundStageTime(DefenderSetupTime)
 		self:FreezeTeam(self.AttackingTeam.TeamId, DefenderSetupTime)
 		
-		self:DisableWeaponsForAll()
+		self:DisableWeaponsForAll("SetupRound")
 
 		self:ShowHintsHostageRescueSetup()
 		
@@ -768,7 +774,7 @@ function hostagerescue:OnRoundStageSet(RoundStage)
 		print("hostagerescue: ****RoundStage HostageRescueInProgress")
 		self:ClearHighlightMovingTargetTimer()
 		
-		self:EnableWeaponsForAll()
+		self:EnableWeaponsForAll("SetupRound")
 
 		self.ApplyHostageLoadout = false
 		
@@ -781,7 +787,7 @@ function hostagerescue:OnRoundStageSet(RoundStage)
 		print("hostagerescue: ****RoundStage BuildingAssaultInProgress")
 		self:ClearHighlightMovingTargetTimer()
 
-		self:EnableWeaponsForAll()
+		self:EnableWeaponsForAll("SetupRound")
 
 		self:DisableDefenderBlockers()
 		-- let defenders leave building now, if they so desire
@@ -797,7 +803,7 @@ function hostagerescue:OnRoundStageSet(RoundStage)
 		self.AbandonedRound = false
 		self.JustSwitchedGameMode = false
 		
-		self:EnableWeaponsForAll()
+		self:EnableWeaponsForAll("SetupRound")
 		self:DisableSpawnProtection()
 		
 		-- finalise scoring at end of PostRoundWait
@@ -807,7 +813,7 @@ function hostagerescue:OnRoundStageSet(RoundStage)
 		
 	elseif RoundStage == "RoundAbandoned" then
 		print("hostagerescue: ****RoundStage RoundAbandoned")
-		self:DisableWeaponsForAll()
+		self:DisableWeaponsForAll("SetupRound")
 	
 		self.CompletedARound = false
 	
@@ -887,7 +893,7 @@ end
 function hostagerescue:GiveEveryoneReadiedUpStatus()
 	-- anyone who is waiting to ready up (in ops room) is assigned ReadiedUp status (just keep life simple)
 
-	local EveryonePlayingList = self:GetPlayerListByStatus(255, true, "WaitingToReadyUp")
+	local EveryonePlayingList = gamemode.GetPlayerListByStatus(255, "WaitingToReadyUp", true)
 
 	if #EveryonePlayingList > 0 then
 		for _, Player in ipairs(EveryonePlayingList) do
@@ -963,24 +969,6 @@ function hostagerescue:BalanceTeams()
 end
 
 
-function hostagerescue:GetPlayerListByStatus(TeamId, OnlyHumans, Status)
-	-- Status = "WaitingToReadyUp", "DeclaredReady" or "NotReady"
-	-- anything else will just return an empty list
-
-	local Result = {}
-	
-	local TeamList = gamemode.GetPlayerList(TeamId, OnlyHumans)
-	
-	for _,PlayerState in ipairs(TeamList) do
-		if player.GetReadyStatus(PlayerState) == Status then
-			table.insert(Result, PlayerState)
-		end
-	end
-
-	return Result
-end
-
-
 function hostagerescue:GetPlayerListIsPlaying(TeamId, OnlyHumans)
 	-- Status = "WaitingToReadyUp" or "DeclaredReady", and ignore "NotReady"
 	-- anything else will just return an empty list
@@ -1026,9 +1014,9 @@ function hostagerescue:CheckEndRoundTimer()
 		self:PruneOutDeadPlayers(LivingDefenders)
 		-- temporary fix
 		
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
 		local NumLivingAttackers = #LivingAttackers + #OpForControllers
-		OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 		local NumLivingDefenders = #LivingDefenders + #OpForControllers
 		
 		if NumLivingAttackers < 2 then
@@ -1068,9 +1056,9 @@ function hostagerescue:CheckEndRoundTimer()
 		self:PruneOutDeadPlayers(LivingDefenders)
 		-- temporary fix
 		
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
 		local NumLivingAttackers = #LivingAttackers + #OpForControllers
-		OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 		local NumLivingDefenders = #LivingDefenders + #OpForControllers
 		-- add in friendly AI players
 		
@@ -1218,39 +1206,21 @@ function hostagerescue:SetupRound()
 		self:DisableDefenderBlockers()
 	end
 	
-	-- set up insertion points:
+	-- pick a random defender spawn
+	self:RandomiseRoundGeneral()	
 	
-	-- attacker insertion points are set up in the HostageRescueSetup() and BuildingAssaultSetup() functions, because implementation varies between modes
-
-	if #self.DefenderInsertionPoints > 1 then
-		self.RandomDefenderInsertionPoint = self.DefenderInsertionPoints[umath.random(#self.DefenderInsertionPoints)]
-	else
-		self.RandomDefenderInsertionPoint = self.DefenderInsertionPoints[1]
-	end
-	
-	print ("Selected random defender insertion point " .. actor.GetName(self.RandomDefenderInsertionPoint))
-	
+	-- make hostage location markers visible only to attackers
 	for i, InsertionPoint in ipairs(self.DefenderInsertionPoints) do
-		actor.SetActive(InsertionPoint, false)
-		-- turn off all defender insertion points so that board has a click to spawn message but no selected insertion point displayed (so players getting autobalanced don't get advance intel)
-		actor.SetTeamId(InsertionPoint, self.DefendingTeam.TeamId)
 		local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
 		if self.MissionLocationMarkers[InsertionPointName] ~= nil then
-			--print("Setting active for [" .. InsertionPointName .. "][" .. self.AttackingTeam.TeamId .. "]")
 			actor.SetActive(self.MissionLocationMarkers[InsertionPointName][self.DefendingTeam.TeamId], false)
 			actor.SetActive(self.MissionLocationMarkers[InsertionPointName][self.AttackingTeam.TeamId], true)
 		else
 			print("Could not find objective marker for insertion point " .. InsertionPointName)
 		end
 	end
-
-	local CurrentDefenderInsertionPointName = gamemode.GetInsertionPointName(self.RandomDefenderInsertionPoint)
-	if CurrentDefenderInsertionPointName == nil then
-		self:ReportError("Insertion point name was unexpectedly nil")
-		return
-	end
-	
-	-----
+			
+	-- reset stuff:
 	
 	self.LastKiller = nil
 	
@@ -1270,6 +1240,103 @@ function hostagerescue:SetupRound()
 		
 	gamemode.SetDefaultRoundStageTime("PreRoundWait", 12 )
 	-- override the 5 second default (actually = 3 in practice -- take off 2 seconds any of these time limits to get actual duration)
+end
+
+
+function hostagerescue:RandomiseRoundGeneral()	
+	-- attacker insertion points are set up in the HostageRescueSetup() and BuildingAssaultSetup() functions, because implementation varies between modes
+
+	if #self.DefenderInsertionPoints == nil then
+		self:ReportError("Could not find any defender insertion points")
+		return
+	end
+
+	if #self.DefenderInsertionPoints > 1 then
+		self.RandomDefenderInsertionPoint = self.DefenderInsertionPoints[umath.random(#self.DefenderInsertionPoints)]
+	else
+		self.RandomDefenderInsertionPoint = self.DefenderInsertionPoints[1]
+	end
+	
+	print ("RandomiseRound(): Selected random defender insertion point " .. actor.GetName(self.RandomDefenderInsertionPoint))
+	
+	local CurrentDefenderInsertionPointName = gamemode.GetInsertionPointName(self.RandomDefenderInsertionPoint)
+	if CurrentDefenderInsertionPointName == nil then
+		self:ReportError("Insertion point name was unexpectedly nil")
+		return
+	end
+	
+	if self.Settings.BalanceTeams.Value == 0 then
+	-- no team auto-balance so don't hide defender spawn
+		self:ActivateDefenderInsertionPoints()
+	else
+		self:DeactivateDefenderInsertionPoints()	
+	end
+end
+
+
+function hostagerescue:RandomiseRoundHostageRescue()
+	-- pick a random extraction point and show it:
+	
+	if #self.AllExtractionPoints > 0 then
+		self.ExtractionPointIndex = umath.random(#self.AllExtractionPoints)
+		-- this is the current extraction point
+
+		for i = 1, #self.AllExtractionPoints do
+			local bActive = (self.Settings.ExtractAnywhere.Value == 0) and (i == self.ExtractionPointIndex)
+			actor.SetActive(self.AllExtractionPointMarkers[i][self.AttackingTeam.TeamId], bActive)
+			actor.SetActive(self.AllExtractionPointMarkers[i][self.DefendingTeam.TeamId], false)
+			actor.SetActive(self.AllExtractionPoints[i], bActive)
+			actor.SetTeamId(self.AllExtractionPoints[i], self.AttackingTeam.TeamId)
+			-- set extraction marker to active and also turn on flare 
+		end
+
+		self.CurrentExtractionPoint = self.AllExtractionPoints[self.ExtractionPointIndex]
+	else
+		-- this will probably cause errors, but the game mode is fairly screwed without extraction points anyway...
+		self.ExtractionPointIndex = nil
+		self.CurrentExtractionPoint = nil
+	end
+	
+	-- set up attacker insertion points:
+	
+	if self.Settings.ExtractAnywhere.Value == 0 then
+		-- enable all insertion points except any being tagged with current extraction point name
+		for i, InsertionPoint in ipairs(self.AttackerInsertionPoints) do
+			local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
+			actor.SetTeamId(InsertionPoint, self.AttackingTeam.TeamId)
+			actor.SetActive(InsertionPoint, not actor.HasTag(self.CurrentExtractionPoint, InsertionPointName))
+		end
+	else
+		-- enable all insertion points
+		for i, InsertionPoint in ipairs(self.AttackerInsertionPoints) do
+			actor.SetTeamId(InsertionPoint, self.AttackingTeam.TeamId)
+			actor.SetActive(InsertionPoint, true)
+		end
+	end
+	
+	-- set up hostage spawn:
+
+	local InsertionPointName = gamemode.GetInsertionPointName(self.RandomDefenderInsertionPoint)
+	
+	for i, HostageSpawn in ipairs(self.AllHostageSpawns) do
+		actor.SetTeamId(HostageSpawn, self.AttackingTeam.TeamId)
+
+		if actor.HasTag(HostageSpawn, InsertionPointName) then
+			--print("Hostage spawn " .. actor.GetName(HostageSpawn) .. " matches insertion point")
+			if self.CurrentHostageSpawn == nil then
+				actor.SetActive(HostageSpawn, true)
+				self.CurrentHostageSpawn = HostageSpawn
+			else
+				self:ReportError("More than one hostage spawn has a tag corresponding to current insertion point " .. InsertionPointName)
+			end
+		else
+			actor.SetActive(HostageSpawn, false)
+		end
+	end
+	
+	if self.CurrentHostageSpawn == nil then
+		self:ReportError("Could not find a hostage spawn matching insertion point " .. InsertionPointName)
+	end
 end
 
 
@@ -1351,8 +1418,8 @@ function hostagerescue:ResetRound()
 	StartingAttackingTeamSize = nil
 
 	if self.DefendingTeam ~= nil then
-		ai.CleanUp(self.DefendingTeam.TeamId)
-		ai.CleanUp(self.AttackingTeam.TeamId)
+		ai.CleanUp(self.OpForTeamTag)
+		ai.CleanUp(self.OpForTeamTag)
 	end
 	
 	for i, InsertionPoint in ipairs(self.AllInsertionPoints) do
@@ -1416,39 +1483,9 @@ function hostagerescue:SetupRoundHostageRescue()
 	
 	self:SetGameObjectives_HostageRescue()
 		
-	-- pick a random extraction point and show it:
-	
-	self.ExtractionPointIndex = umath.random(#self.AllExtractionPoints)
-	-- this is the current extraction point
-
-	for i = 1, #self.AllExtractionPoints do
-		local bActive = (self.Settings.ExtractAnywhere.Value == 0) and (i == self.ExtractionPointIndex)
-		actor.SetActive(self.AllExtractionPointMarkers[i][self.AttackingTeam.TeamId], bActive)
-		actor.SetActive(self.AllExtractionPointMarkers[i][self.DefendingTeam.TeamId], false)
-		actor.SetActive(self.AllExtractionPoints[i], bActive)
-		actor.SetTeamId(self.AllExtractionPoints[i], self.AttackingTeam.TeamId)
-		-- set extraction marker to active and also turn on flare 
-	end
-
-	self.CurrentExtractionPoint = self.AllExtractionPoints[self.ExtractionPointIndex]
-	
-	-- set up attacker insertion points:
-	
-	if self.Settings.ExtractAnywhere.Value == 0 then
-		-- enable all insertion points except any being tagged with current extraction point name
-		for i, InsertionPoint in ipairs(self.AttackerInsertionPoints) do
-			local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
-			actor.SetTeamId(InsertionPoint, self.AttackingTeam.TeamId)
-			actor.SetActive(InsertionPoint, not actor.HasTag(self.CurrentExtractionPoint, InsertionPointName))
-		end
-	else
-		-- enable all insertion points
-		for i, InsertionPoint in ipairs(self.AttackerInsertionPoints) do
-			actor.SetTeamId(InsertionPoint, self.AttackingTeam.TeamId)
-			actor.SetActive(InsertionPoint, true)
-		end
-	end
-	
+	-- pick random extraction point and set them up
+	self:RandomiseRoundHostageRescue()
+		
 	-- set up hostage triggers:
 	
 	for i, GameTrigger in ipairs(self.AllHostageTriggers) do
@@ -1456,29 +1493,7 @@ function hostagerescue:SetupRoundHostageRescue()
 		actor.SetActive(GameTrigger, true)
 	end
 	
-	-- set up hostage spawn:
 
-	local InsertionPointName = gamemode.GetInsertionPointName(self.RandomDefenderInsertionPoint)
-	
-	for i, HostageSpawn in ipairs(self.AllHostageSpawns) do
-		actor.SetTeamId(HostageSpawn, self.AttackingTeam.TeamId)
-
-		if actor.HasTag(HostageSpawn, InsertionPointName) then
-			print("Hostage spawn " .. actor.GetName(HostageSpawn) .. " matches insertion point")
-			if self.CurrentHostageSpawn == nil then
-				actor.SetActive(HostageSpawn, true)
-				self.CurrentHostageSpawn = HostageSpawn
-			else
-				self:ReportError("More than one hostage spawn has a tag corresponding to current insertion point " .. InsertionPointName)
-			end
-		else
-			actor.SetActive(HostageSpawn, false)
-		end
-	end
-	
-	if self.CurrentHostageSpawn == nil then
-		self:ReportError("Could not find a hostage spawn matching insertion point " .. InsertionPointName)
-	end
 end
 
 
@@ -1640,7 +1655,6 @@ function hostagerescue:SelectHostage()
 		return
 	end
 
-	local AttackerPlayers = {}
 	local SelectedPlayer = nil
 
 	if self.CurrentHostage ~= nil then
@@ -1648,9 +1662,9 @@ function hostagerescue:SelectHostage()
 		return
 	end
 
-	--AttackerPlayers = gamemode.GetPlayerListByLives(self.AttackingTeam.TeamId, 1, true)
-	AttackerPlayers = self:GetPlayerListByStatus(self.AttackingTeam.TeamId, true, "DeclaredReady")
-		
+	local AttackerPlayers = gamemode.GetPlayerListByStatus(self.AttackingTeam.TeamId, "DeclaredReady", true)
+	local VolunteerPlayers = gamemode.GetVolunteerListByStatus(self.AttackingTeam.TeamId, "DeclaredReady", true)
+
 	print("Num attacker players = " .. #AttackerPlayers .. ":")
 	for _, P in ipairs(AttackerPlayers) do
 		print(player.GetName(P))
@@ -1667,27 +1681,31 @@ function hostagerescue:SelectHostage()
 		end
 	else	
 		
-		for i = 1, #self.PastHostages do
-			-- if only one player remains in the list, they have to be the fox
-			if #AttackerPlayers == 1 then
-				SelectedPlayer = AttackerPlayers[1]
-				break
-			end
-			
-			for j = 1, #AttackerPlayers do
-				-- find past hostage in current list of players, and remove it
-				if self.PastHostages[i] == AttackerPlayers[j] then	
-					table.remove(AttackerPlayers, j)
+		if #AttackerPlayers == 1 then
+			SelectedPlayer = AttackerPlayers[1]
+		elseif #VolunteerPlayers == 1 then
+			SelectedPlayer = VolunteerPlayers[1]
+		else
+			for i = 1, #self.PastHostages do
+				-- if only one player remains in the list, they have to be the hostage
+				if #AttackerPlayers == 1 then
+					SelectedPlayer = AttackerPlayers[1]
 					break
 				end
+				
+				for j = 1, #AttackerPlayers do
+					-- find past hostage in current list of players, and remove it
+					if self.PastHostages[i] == AttackerPlayers[j] then	
+						table.remove(AttackerPlayers, j)
+						break
+					end
+				end
 			end
-			
-		end
 
-		if SelectedPlayer == nil then
-			SelectedPlayer = AttackerPlayers[ umath.random(#AttackerPlayers) ]
+			if SelectedPlayer == nil then
+				SelectedPlayer = AttackerPlayers[ umath.random(#AttackerPlayers) ]
+			end
 		end
-
 	end
 
 	if SelectedPlayer ~= nil then
@@ -1755,21 +1773,23 @@ function hostagerescue:CreateHostageLoadout(PlayerState, LoadoutName)
 	local ClothingKit = inventory.GetCustomKitAsTable("hostage", SplitItemField)
 	-- this searches game CustomKit folder in current mod then base game
 	
-	if ClothingKit.Data ~= nil then
-		local MoreItemsToRemove = { "Pants", "Shirt", "Footwear" }
+	if ClothingKit.ItemData ~= nil then
+		-- v1034 - also replace head and hair (to force male hostage so people don't get weird with it)
+		local MoreItemsToRemove = { "Pants", "Shirt", "Footwear", "Head", "HairMale", "HairFemale" }
 		inventory.RemoveItemTypesFromLoadoutTable(MoreItemsToRemove, Loadout, SplitItemField)	
 		inventory.AddCustomKitTableToLoadoutTable(ClothingKit, Loadout, SplitItemField)
 	end
 	
 	-- now add flexcuffs:
 	local Cuffs = { ItemType = "Equipment", ItemValue = "BP_Restraints_FlexCuffs" }
-	table.insert(Loadout.Data, Cuffs)
+	table.insert(Loadout.ItemData, Cuffs)
 
 	local Sack = { ItemType = "HeadGear", ItemValue = "BP_HostageSack" }
-	table.insert(Loadout.Data, Sack)
+	table.insert(Loadout.ItemData, Sack)
+
+	--self:DumpLoadout(Loadout, 0)
 
 	inventory.CreateLoadoutFromTable(PlayerState, "Hostage", Loadout, SplitItemField)
-	--print("Created loadout 'Hostage' for player " .. player.GetName(PlayerState))
 end
 
 
@@ -2018,17 +2038,14 @@ function hostagerescue:OnCharacterDied(Character, CharacterController, KillerCon
 
 			if gamemode.GetRoundStage() ~= "PostRoundWait" then
 				-- don't want to do scoring once round is over
-
-				local KillerPlayerState = nil
-				local KilledPlayerState = player.GetPlayerState(CharacterController)
 				
-				if KillerController ~= nil then
-					KillerPlayerState = player.GetPlayerState(KillerController)
-				end
+				local KilledTeam, KilledPlayerState
+				local KillerTeam, KillerPlayerState
 				
-				local KillerTeam = actor.GetTeamId( KillerController ) 
-				local KilledTeam = actor.GetTeamId( CharacterController )
-
+				-- if CharacterController or KillerController is (AI or nil), XXXTeam will be 0 (no team) and XXXPlayerState will be nil
+				KilledTeam, KilledPlayerState = self:GetSafeTeamAndPlayerState( CharacterController )
+				KillerTeam, KillerPlayerState = self:GetSafeTeamAndPlayerState( KillerController )
+				
 				-- do scoring stuff
 				if KillerController ~= nil then
 	
@@ -2146,6 +2163,18 @@ function hostagerescue:OnCharacterDied(Character, CharacterController, KillerCon
 end
 
 
+function hostagerescue:GetSafeTeamAndPlayerState(Controller)
+	if Controller == nil or ai.IsAI(Controller) then
+		return 0, nil
+	end
+
+	local Team = actor.GetTeamId(Controller)
+	local PlayerState = player.GetPlayerState(Controller)
+	
+	return Team, PlayerState
+end
+
+
 function hostagerescue:GetDistanceBetweenPlayers(Player1, Player2, TwoDimensional)
 -- returns distance in metres between the players
 
@@ -2222,7 +2251,8 @@ end
 function hostagerescue:GetTotalPlayersOnTeamIncludingAI(TeamId)
 
 		local LivingHumans = gamemode.GetPlayerListByLives(TeamId, 1, true)
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, TeamId, 255)
+		-- new in v1034 - use nil for default AI controller class, currently tags aren't working but are ignored
 		return #LivingHumans + #OpForControllers
 end
 
@@ -2506,7 +2536,7 @@ function hostagerescue:CheckOpForExfilTimer()
 	end
 	
 	if bExfiltrated then
-		timer.Clear(self, "CheckOpForExfil")
+		timer.Clear("CheckOpForExfil")
 		gamemode.AddGameStat("Result=Team" .. tostring(self.AttackingTeam.TeamId))
 		gamemode.AddGameStat("Summary=ExtractedHostage")
 		gamemode.AddGameStat("CompleteObjectives=ExtractHostage")
@@ -2564,6 +2594,50 @@ function hostagerescue:OnPreLoadoutChanged(Loadout)
 end
 
 
+function hostagerescue:ActivateDefenderInsertionPoints()
+	-- now make the insertion points live, so that PrepLatercomers() etc will work	
+	for _, InsertionPoint in ipairs(self.DefenderInsertionPoints) do
+		if InsertionPoint == self.RandomDefenderInsertionPoint then
+			actor.SetActive(InsertionPoint, true)
+			actor.SetTeamId(InsertionPoint, self.DefendingTeam.TeamId)
+		else
+			actor.SetActive(InsertionPoint, false)
+			actor.SetTeamId(InsertionPoint, 255)
+		end
+	end
+end
+
+
+function hostagerescue:DeactivateDefenderInsertionPoints()
+	for i, InsertionPoint in ipairs(self.DefenderInsertionPoints) do
+		actor.SetActive(InsertionPoint, false)
+		actor.SetTeamId(InsertionPoint, 255)
+	end
+end
+
+
+function hostagerescue:OnRandomiseObjectives()
+	-- new in v1034
+	
+	self:RandomiseRoundGeneral()
+	
+	if self.CurrentHostageRescueGameMode == "HostageRescue" then
+		self:RandomiseRoundHostageRescue()
+	end
+	
+end
+
+
+function hostagerescue:CanRandomiseObjectives()
+	-- new in v1034
+
+	-- can randomise objectives if defender spawns are shown, or if randomising extraction zones
+	return ( (self.Settings.BalanceTeams.Value == 0 and (#self.DefenderInsertionPoints >1) ) 
+	or ( (self.Settings.ExtractAnywhere.Value == 0) and (#self.AllExtractionPoints > 1) ) )
+	
+end
+
+
 function hostagerescue:OnMissionSettingsChanged(ChangedSettingsTable)
 	-- NB this may be called before some things are initialised
 	-- need to avoid infinite loops by setting new mission settings
@@ -2572,6 +2646,16 @@ function hostagerescue:OnMissionSettingsChanged(ChangedSettingsTable)
 		-- new thing 2023/3/1 because changing time during mission might cause this to be called (bad)
 		print("hostagerescue:OnMissionSettingsChanged(): not called during WaitingForReady, so ignored")
 		return
+	end
+	
+	if ChangedSettingsTable['BalanceTeams'] ~= nil then
+		-- show or hide spawns depending on whether we are balancing teams (0 = not)
+		
+		if self.Settings.BalanceTeams.Value == 0 then
+			self:ActivateDefenderInsertionPoints()
+		else
+			self:DeactivateDefenderInsertionPoints()
+		end
 	end
 	
 	if ChangedSettingsTable['ForceHostageRescue'] ~= nil then

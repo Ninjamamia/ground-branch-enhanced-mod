@@ -1,10 +1,30 @@
 local terroristhunt = {
-	UseReadyRoom = true,
-	UseRounds = true,
 	StringTables = { "TerroristHunt" },
 	
-	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
+	GameModeAuthor = "(c) BlackFoot Studios, 2021-2023",
 	GameModeType = "PVE",
+
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+	
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+	AllowUnrestrictedRadio = true,
+	AllowUnrestrictedVoice = true,
+	SpectateForceFirstPerson = false,
+	SpectateFreeCam = true,
+	SpectateEnemies = false,
+		
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
 	
 	PlayerTeams = {
 		BluFor = {
@@ -12,6 +32,11 @@ local terroristhunt = {
 			Loadout = "NoTeam",
 		},
 	},
+	
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
+	
 	Settings = {
 		OpForCount = {
 			Min = 1,
@@ -53,6 +78,11 @@ local terroristhunt = {
 		-- 0 = no bum rush mode
 		-- 1 = activate bum rush at approx 1-5 AI left
 	},
+	
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
+
 	
 	OpForTeamTag = "OpFor",
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
@@ -186,6 +216,8 @@ function terroristhunt:PreInit()
 	TotalSpawns = math.min(ai.GetMaxCount(), TotalSpawns)
 	self.Settings.OpForCount.Max = TotalSpawns
 	self.Settings.OpForCount.Value = math.min(self.Settings.OpForCount.Value, TotalSpawns)
+
+	print("TerroristHunt:PreInit(): OpForCount.Value set to " .. self.Settings.OpForCount.Value .. " (TotalSpawns=" .. TotalSpawns .. ")")
 
 	self.Settings.ShowRemaining.Max = TotalSpawns
 	self.Settings.ShowRemaining.Value = math.min(self.Settings.ShowRemaining.Value, TotalSpawns)
@@ -446,7 +478,7 @@ function terroristhunt:SpawnOpFor()
 					Group[i], Group[j] = Group[j], Group[i]
 
 					local SpawnName = actor.GetName(Group[i])
-					if CurrentAISpawnTarget > 0 and AllocatedSpawnMap[SpawnName] == nil then
+					if SpawnName ~= nil and CurrentAISpawnTarget > 0 and AllocatedSpawnMap[SpawnName] == nil then
 						table.insert(OrderedSpawns, Group[i])
 						AllocatedSpawnMap[SpawnName] = true
 						CurrentAISpawnTarget = CurrentAISpawnTarget - 1
@@ -487,7 +519,7 @@ end
 function terroristhunt:OnCharacterDied(Character, CharacterController, KillerController)
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
 		if CharacterController ~= nil then
-			if actor.HasTag(CharacterController, self.OpForTeamTag) then
+			if ai.IsAI(CharacterController, self.OpForTeamTag) then
 				timer.Set("CheckOpForCount", self, self.CheckOpForCountTimer, 1.0, false)
 			else
 				player.SetLives(CharacterController, player.GetLives(CharacterController) - 1)
@@ -507,7 +539,8 @@ end
 
 
 function terroristhunt:CheckOpForCountTimer()
-	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
+	local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+	-- new in v1034 - use nil for default AI controller class, currently tags aren't working but are ignored
 
 	if #OpForControllers == 0 then
 		timer.Clear("ShowRemaining")
@@ -560,7 +593,9 @@ end
 
 
 function terroristhunt:UpdateBumRushTargetsTimer()
-	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
+	local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+	-- new in v1034 - use nil for default AI controller class, currently tags aren't working but are ignored
+		
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
 	
 	if OpForControllers == nil or #OpForControllers == 0 or PlayersWithLives == nil or #PlayersWithLives == 0 then
@@ -568,7 +603,7 @@ function terroristhunt:UpdateBumRushTargetsTimer()
 	end
 	
 	if gamemode.GetRoundStage() ~= 'InProgress' then
-		timer.Clear(self, "UpdateBumRushTargets")
+		timer.Clear("UpdateBumRushTargets")
 		return
 	end
 	
@@ -636,11 +671,24 @@ end
 function terroristhunt:OnMissionSettingsChanged(ChangedSettingsTable)
 	-- NB this may be called before some things are initialised
 	-- need to avoid infinite loops by setting new mission settings
+	
     if ChangedSettingsTable['UseAIHotspots'] ~= nil then
         print("OnMissionSettingsChanged(): UseAIHotspots value changed.")
 		self:PickHotspot()
 		-- force update
 	end
+end
+
+
+function terroristhunt:OnRandomiseObjectives()
+	-- new in 1034 - new randomise objective button is clicked, so re-roll hotspot selection and so on
+	self:PickHotspot()
+end
+
+
+function terroristhunt:CanRandomiseObjectives()
+	-- allow randomisation if we have a variety of hotspots and the use of hotspots is enabled
+	return (#self.AllAIHotspots > 1) and (self.Settings.UseAIHotspots.Value == 1)
 end
 
 

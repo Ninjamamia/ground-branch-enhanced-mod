@@ -1,9 +1,37 @@
 local lastmanstanding = {
-	UseReadyRoom = true,
-	UseRounds = true,
-	StringTables = { "Last Man Standing" },
+	StringTables = { "LastManStanding" },
+
 	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
 	GameModeType = "PVP FFA",
+	
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+	
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+	AllowUnrestrictedRadio = false,
+	AllowUnrestrictedVoice = false,
+	SpectateForceFirstPerson = true,
+	SpectateFreeCam = false,
+	SpectateEnemies = false,
+	
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
+	
+	-- not used in FFA
+
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
+	
 	Settings = {
 		RoundTime = {
 			Min = 3,
@@ -30,6 +58,11 @@ local lastmanstanding = {
             AdvancedSetting = true,
         },
 	},
+	
+		
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
 	
 	PlayerStarts = {},
 	RecentlyUsedPlayerStarts = {},

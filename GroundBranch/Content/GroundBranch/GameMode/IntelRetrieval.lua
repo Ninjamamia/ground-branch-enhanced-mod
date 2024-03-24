@@ -1,10 +1,30 @@
 local intelretrieval = {
-	UseReadyRoom = true,
-	UseRounds = true,
 	StringTables = { "IntelRetrieval" },
 	
 	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
 	GameModeType = "PVE",
+	
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+	
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+	AllowUnrestrictedRadio = true,
+	AllowUnrestrictedVoice = true,
+	SpectateForceFirstPerson = false,
+	SpectateFreeCam = true,
+	SpectateEnemies = false,
+		
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
 	
 	PlayerTeams = {
 		BluFor = {
@@ -12,6 +32,10 @@ local intelretrieval = {
 			Loadout = "NoTeam",
 		},
 	},
+	
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
 	
 	Settings = {
 		OpForCount = {
@@ -66,6 +90,11 @@ local intelretrieval = {
 		},
 		-- 1 to make watch display alert if in proximity
 	},
+	
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
+	
 	OpForTeamTag = "OpFor",
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
 		"AISpawn_6_10", "AISpawn_11_20", "AISpawn_21_30", "AISpawn_31_40", "AISpawn_41_50" },
@@ -775,7 +804,7 @@ function intelretrieval:OnCharacterDied(Character, CharacterController, KillerCo
 	--print("IntelRetrieval:OnCharacterDied()")
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
 		if CharacterController ~= nil then
-			if not actor.HasTag(CharacterController, self.OpForTeamTag) then
+			if not ai.IsAI(CharacterController, self.OpForTeamTag) then
 				player.SetLives(CharacterController, player.GetLives(CharacterController) - 1)
 				
 				local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
@@ -867,7 +896,7 @@ function intelretrieval:CheckOpForExfilTimer()
 	
 	if bLaptopSecure then
 		if bExfiltrated then
-		 	timer.Clear(self, "CheckOpForExfil")
+		 	timer.Clear("CheckOpForExfil")
 		 	gamemode.AddGameStat("Result=Team1")
 		 	gamemode.AddGameStat("Summary=IntelRetrieved")
 			gamemode.AddGameStat("CompleteObjectives=RetrieveIntel,ExfiltrateBluFor")
@@ -952,6 +981,18 @@ function intelretrieval:OnMissionSettingsChanged(ChangedSettingsTable)
         print("OnMissionSettingsChanged(): DisplaySearchLocations value changed.")
 		self:RandomiseObjectives()
 	end
+end
+
+
+function intelretrieval:OnRandomiseObjectives()
+	-- new in 1034 - new randomise objective button is clicked, so re-roll search locations and so on
+	self:RandomiseObjectives()
+end
+
+
+function intelretrieval:CanRandomiseObjectives()
+	-- allow randomisation if we have multiple extraction points, or we are displaying fewer than all possible search locations
+	return (#self.ExtractionPoints > 1)	or (self:GetNumberOfSearchLocations() < #self.LaptopLocationNameList)
 end
 
 
@@ -1043,7 +1084,8 @@ function intelretrieval:ActivateBumRush()
 		self.BumRushLeaveSquadsAlone = {}
 		
 		local ExtractionPointLocation = actor.GetLocation( self.ExtractionPoints[self.ExtractionPointIndex] )
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+		-- v1034: class type of nil now uses default controller type (kythera now)
 		
 		for _, AIController in ipairs(OpForControllers) do
 		
@@ -1068,7 +1110,9 @@ end
 
 
 function intelretrieval:UpdateBumRushTargetsTimer()
-	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
+	local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+	-- v1034: class type of nil now uses default controller type (kythera now)
+	
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
 	local ExtractionPointLocation = actor.GetLocation( self.ExtractionPoints[self.ExtractionPointIndex] )
 	
@@ -1077,15 +1121,15 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 	end
 	
 	if gamemode.GetRoundStage() ~= 'InProgress' then
-		timer.Clear(self, "UpdateBumRushTargets")
+		timer.Clear("UpdateBumRushTargets")
 		return
 	end
 	
 	local TempExtractionPointLocation = ai.ProjectPointToNavigation(ExtractionPointLocation, { x=500.0, y=500.0, z=1000.0 } )
 	if TempExtractionPointLocation ~= nil then
-		print("Old extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
+		--print("Old extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
 		ExtractionPointLocation = TempExtractionPointLocation
-		print("Next extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
+		--print("Next extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
 	else
 		print("Could not project extraction zone to navmesh")
 	end
@@ -1110,7 +1154,7 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 	for AISquadID, _ in pairs(self.BumRushLeaveSquadsAlone) do
 		AISquadList[AISquadID] = nil
 		-- remove controllers for that squad
-		print("Removed all controllers for squad " .. AISquadID .. " because they were close enough to extraction")
+		print("Removed controllers for squad " .. AISquadID .. " from orders list because they were close enough to extraction")
 	end
 
 	-- now activate bum rush mode

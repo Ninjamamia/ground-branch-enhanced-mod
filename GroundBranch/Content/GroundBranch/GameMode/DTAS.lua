@@ -1,5 +1,9 @@
 local DTAS = {
+	StringTables = { "DTAS" },
 	
+	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
+	GameModeType = "PVP",
+			
 	-- Welcome to the Dynamic Take And Secure (DTAS) game mode
 	-- implemented in Ground Branch by Matt 'Fatmarrow' Farrow
 	-- Credits at the end of this file.
@@ -10,21 +14,19 @@ local DTAS = {
 	-- back in the day. So if you don't like it, go make something 
 	-- different and better...
 
-	-- v0.21+ (version control switched to Perforce)
-
 	-- original DTAS documentation is at https://www.cleeus.de/cms/content/view/35/46/index.html
 
-	StringTables = { "DTAS" },
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
 	
-	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
-	GameModeType = "PVP",
-
-	---------------------------------------------
-	----- Game Rules ----------------------------
-	---------------------------------------------
-
 	UseReadyRoom = true,
 	UseRounds = true,
+	VolunteersAllowed = true,
+
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
 
 	AllowUnrestrictedRadio = false,
 	AllowUnrestrictedVoice = false,
@@ -48,7 +50,7 @@ local DTAS = {
 	},
 	
 	---------------------------------------------
-	---- Game Settings --------------------------
+	---- Mission Settings -----------------------
 	---------------------------------------------
 	
 	Settings = {
@@ -734,6 +736,8 @@ local DTAS = {
 	TimerIncrement = 0,
 	-- temporary fix to allow spawning in
 	
+	DebugMode = false,
+	
 }
 
 
@@ -757,6 +761,8 @@ function DTAS:PreInit()
 	self.CurrentRoundNumber = 1
 	-- this will be incremented by 1 at start of first round
 	-- this is no longer needed - now tracked in AGBGameState as part of match stuff
+
+	gamemode.ClearVolunteerStatuses()
 
 	gamemode.SetRoundStage("WaitingForReady")
 	
@@ -1000,7 +1006,7 @@ end
 function DTAS:GiveEveryoneReadiedUpStatus()
 	-- anyone who is waiting to ready up (in ops room) is assigned ReadiedUp status (just keep life simple)
 
-	local EveryonePlayingList = self:GetPlayerListByStatus(255, true, "WaitingToReadyUp")
+	local EveryonePlayingList = gamemode.GetPlayerListByStatus(255, "WaitingToReadyUp", true)
 
 	if #EveryonePlayingList > 0 then
 		for _, Player in ipairs(EveryonePlayingList) do
@@ -1336,24 +1342,6 @@ function DTAS:BalanceTeams()
 end
 
 
-function DTAS:GetPlayerListByStatus(TeamId, OnlyHumans, Status)
-	-- Status = "WaitingToReadyUp", "DeclaredReady" or "NotReady"
-	-- anything else will just return an empty list
-
-	local Result = {}
-	
-	local TeamList = gamemode.GetPlayerList(TeamId, OnlyHumans)
-	
-	for _,PlayerState in ipairs(TeamList) do
-		if player.GetReadyStatus(PlayerState) == Status then
-			table.insert(Result, PlayerState)
-		end
-	end
-
-	return Result
-end
-
-
 function DTAS:GetPlayerListIsPlaying(TeamId, OnlyHumans)
 	-- Status = "WaitingToReadyUp" or "DeclaredReady", and ignore "NotReady"
 	-- anything else will just return an empty list
@@ -1466,9 +1454,9 @@ function DTAS:CheckEndRoundTimer()
 		self:PruneOutDeadPlayers(LivingDefenders)
 		-- temporary fix
 		
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
 		local NumLivingAttackers = #LivingAttackers + #OpForControllers
-		OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 		local NumLivingDefenders = #LivingDefenders + #OpForControllers
 		-- add in friendly AI players (I think this also counts dead players?)
 		
@@ -1511,7 +1499,7 @@ function DTAS:CheckEndRoundTimer()
 			if self.FoxPlayerIsAI then
 				FoxNumLives = 0
 				
-				local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+				local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 
 				for i, OpForController in ipairs(OpForControllers) do
 					if OpForController == self.FoxPlayer then
@@ -1532,9 +1520,9 @@ function DTAS:CheckEndRoundTimer()
 		self:PruneOutDeadPlayers(LivingDefenders)
 		-- temporary fix
 		
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
 		local NumLivingAttackers = #LivingAttackers + #OpForControllers
-		OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 		local NumLivingDefenders = #LivingDefenders + #OpForControllers
 		-- add in friendly AI players
 		
@@ -1641,7 +1629,7 @@ function DTAS:ScorePlayersAtEndOfRound( WinningTeam )
 	end
 		
 	if self.FoxPlayerIsAI then
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 		-- AI controllers are deleted when killed so if we find one, it is alive
 		for i, OpForController in ipairs(OpForControllers) do
 			if OpForController == self.FoxPlayer then
@@ -1786,8 +1774,7 @@ function DTAS:ResetRound()
 	StartingAttackingTeamSize = nil
 
 	if self.DefendingTeam ~= nil then
-		ai.CleanUp(self.DefendingTeam.TeamId)
-		ai.CleanUp(self.AttackingTeam.TeamId)
+		ai.CleanUp(self.OpForTeamTag)
 	end
 	
 	self.LastDTASStatus = nil
@@ -1825,12 +1812,13 @@ end
 
 function DTAS:AwardPlayerScore( Player, ScoreType )
 	-- Player must be a playerstate - use player.GetPlayerState ( ... ) if you need to when calling this
-
-	if not actor.HasTag(player.GetCharacter(Player), self.OpForTeamTag) then
---		print("AwardPlayerScore: Not awarding any score to AI player")
---	else
-		player.AwardPlayerScore( Player, ScoreType, 1 )		
+	
+	if Player == nil then
+		print("DTAS:AwardPlayerScore(): Player was nil")
+		return
 	end
+	
+	player.AwardPlayerScore( Player, ScoreType, 1 )		
 end 
 
 
@@ -1955,12 +1943,17 @@ function DTAS:SelectFlagCarrier()
 		return
 	end
 
-	DefenderPlayers = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
-	-- for some reason this doesn't pick up AI when false?
+	-- first see if we have any volunteers (new in v1034)
+	DefenderPlayers = gamemode.GetVolunteerListByLives(self.DefendingTeam.TeamId, 1, true)
+
+	if #DefenderPlayers == 0 then
+		-- no volunteers, so everyone gets a chance
+		DefenderPlayers = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
+	end
 		
 	if #DefenderPlayers < 1 then
 		
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
 
 		if #OpForControllers > 0 then
 			self.FlagCarrier = OpForControllers[umath.random(#OpForControllers)]
@@ -2085,12 +2078,18 @@ function DTAS:SelectFoxPlayer()
 		print("Already have a Fox player selected, but reselecting anyway")
 	end
 
-	DefenderPlayers = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
-	-- does not pick up AI for some reason when set false
+	-- first see if we have any volunteers (new in v1034)
+	DefenderPlayers = gamemode.GetVolunteerListByLives(self.DefendingTeam.TeamId, 1, true)
+
+	if #DefenderPlayers == 0 then
+		-- if no volunteers, pick from the whole team
+		DefenderPlayers = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
+	end
 	
 	if DefenderPlayers == nil or #DefenderPlayers < 1 then
 		
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+		-- new in v1034 - use nil for default AI controller class, currently tags aren't working but are ignored
 
 		if OpForControllers == nil or #OpForControllers == 0 then
 			print("No suitable defenders found to assign as Fox")
@@ -2261,10 +2260,12 @@ function DTAS:GetDTASFlagCounts()
 	local AttackerCount = 0
 
 	DefenderPlayers = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
-	DefenderAI = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+	DefenderAI = ai.GetControllers(nil, self.OpForTeamTag, self.DefendingTeam.TeamId, 255)
+	-- new in v1034 - use nil for default AI controller class
 	
 	AttackerPlayers = gamemode.GetPlayerListByLives(self.AttackingTeam.TeamId, 1, true)
-	AttackerAI = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
+	AttackerAI = ai.GetControllers(nil, self.OpForTeamTag, self.AttackingTeam.TeamId, 255)
+	-- new in v1034 - use nil for default AI controller class
 	
 	for poop, Defender in ipairs(DefenderPlayers) do
 		if self:IsInFlagRange(Defender) then
@@ -2297,7 +2298,7 @@ end
 function DTAS:IsInFlagRange(PlayerToCheck)
 	-- TODO add option for requiring line of sight? would need hook for that also in GB
 	
-	if self.FlagPlacement == nil then
+	if self.FlagPlacement == nil or PlayerToCheck == nil then
 		return false
 	end
 
@@ -2689,6 +2690,14 @@ function DTAS:SetupSpawns()
 		end
 	end
 
+	-- temporary debug 2024/2/29
+	if self.DebugMode then
+		for _, Location in ipairs(ListOfCandidateSpawnLists[FinalSpawnListIndices[1]].LocationList) do
+			-- new in 1034:
+			gameplaystatics.DisplayDebugSphere(Location, 100.0, 20.0)
+		end
+	end
+
 	if #FinalSpawnListIndices == 2 then
 		self.AttackerInsertionPoints = ListOfCandidateSpawnLists[FinalSpawnListIndices[1]].LocationList
 		self.DefenderInsertionPoints = ListOfCandidateSpawnLists[FinalSpawnListIndices[2]].LocationList
@@ -2840,7 +2849,7 @@ function DTAS:ScoreSpawnLocationCombo( SpawnSet1, SpawnSet2, LastSpawns )
 	-- score spawns not being reachable from each other (which is ... good?)
 	
 	local ReachableCorrection 
-	if  ai.CheckLocationReachable( SpawnCentre1, SpawnCentre2, false ) then
+	if  ai.CheckLocationReachable( SpawnCentre1, SpawnCentre2 ) then
 		ReachableCorrection = 2.0 * self.SpawnsScoreSpawnsNotReachableFromEachOther
 		--print("Spawns reachable - ReachableCorrection = " .. ReachableCorrection)
 	else
@@ -2887,6 +2896,8 @@ function DTAS:FindBaseSpawnPoint_RandomPoint()
 		if SpawnLocation == nil then
 			print("DTAS: FindCandidateSpawn() returned nil")
 		else
+			--print("Dumping found spawn location:")
+			--self:DumpVector(SpawnLocation)
 			if RandomSpawnLocation ~= nil then
 			-- if can't find a random spawn location or other entity on the playable navmesh, then take current spawn location on trust 
 			-- (this may fail, but if we can't find an insertion point, the map is clearly a bit borked anyway so we'll take what we can get)
@@ -2911,10 +2922,6 @@ function DTAS:FindBaseSpawnPoint_RandomPoint()
 				IsValidSpawn, CorrectedSpawnLocation = self:IsValidSpawn(SpawnLocation)
 				
 				if not IsValidSpawn then
-
-					--print("DTAS: base spawn was deemed not valid by Kris' function - dumping")
-					-- we could alternatively use the amended result but for now I prefer not
-					--self:DumpVector(BaseSpawnLocation)
 					SpawnLocation = nil
 				else
 					--print("corrected spawn Z diff = " .. CorrectedSpawnLocation.z - SpawnLocation.z)
@@ -3046,9 +3053,6 @@ function DTAS:FindBaseSpawnPoint_GameObject()
 				IsValidSpawn, CorrectedSpawnLocation = self:IsValidSpawn(BaseSpawnLocation)
 			
 				if not IsValidSpawn then
-					--print("DTAS: base spawn was deemed not valid by Kris' function - dumping")
-					-- we could alternatively use the amended result but for now I prefer not
-					--self:DumpVector(BaseSpawnLocation)
 					BaseSpawnLocation = nil
 				else
 					--print("corrected spawn Z diff = " .. CorrectedSpawnLocation.z - BaseSpawnLocation.z)
@@ -3117,7 +3121,7 @@ function DTAS:CheckLocationReachable( SpawnLocation, RandomSpawnLocation)
 	-- test if we can path to the random spawn location, but also (if necessary/possible) see if we can path to other random game objects
 	-- (the issue is that random locations inside buildings with doors closed probably won't be possible to reach from spawns, but may be reachable from AI spawns or mission objects)
 		
-	if ai.CheckLocationReachable( SpawnLocation, RandomSpawnLocation, false ) then
+	if ai.CheckLocationReachable( SpawnLocation, RandomSpawnLocation ) then
 		return true
 	end
 	-- easiest case, we have direct route to spawn
@@ -3133,7 +3137,7 @@ function DTAS:CheckLocationReachable( SpawnLocation, RandomSpawnLocation)
 			local RandomGameObject = self.GameModeObjectsUseForRandomSpawns[j]
 			local RandomGameObjectLocation = actor.GetLocation( RandomGameObject )
 						
-			if ai.CheckLocationReachable( SpawnLocation, RandomGameObjectLocation, false ) then
+			if ai.CheckLocationReachable( SpawnLocation, RandomGameObjectLocation ) then
 				--print("success: found a path to a game object after " .. j .. " tries.")
 				return true
 			end
@@ -3157,7 +3161,7 @@ function DTAS:CheckLocationReachable( SpawnLocation, RandomSpawnLocation)
 			local RandomGameObject = self.GameModeObjectsUseForRandomSpawns[RandomIndex]
 			local RandomGameObjectLocation = actor.GetLocation( RandomGameObject )
 					
-			if ai.CheckLocationReachable( SpawnLocation, RandomGameObjectLocation, false ) then
+			if ai.CheckLocationReachable( SpawnLocation, RandomGameObjectLocation ) then
 				--print("success: found a path to a game object")
 				return true
 			end
@@ -3169,8 +3173,6 @@ end
 
 
 function DTAS:IsValidSpawn(SpawnLocation)
-	-- test using Kris' GB-specific spawn validation/moving function
-
 	local CapsuleHalfHeight = 100
 	local CapsuleRadius = 40
 	
@@ -3612,9 +3614,8 @@ function DTAS:GetNextSpawnLocation(TeamId)
 			if Location == nil then
 				print("DTAS:GetNextSpawnLocation - DefenderInsertionPoints[" .. self.CurrentInsertionPointIndex[TeamId] .. "] is nil")
 				return nil
-			else
-				Location.z = Location.z + self.PlayerCapsuleHalfHeight + 10
-				--Location.z = Location.z + 70
+			--else
+			--	Location.z = Location.z + self.PlayerCapsuleHalfHeight + 10
 			end
 			
 		end
@@ -3665,42 +3666,55 @@ function DTAS:OnCharacterDied(Character, CharacterController, KillerController)
 			if not actor.HasTag(CharacterController, self.OpForTeamTag) then
 				LivesLeft = math.max(0, player.GetLives(CharacterController) - 1)
 				player.SetLives(CharacterController, LivesLeft)
-				--print("Human died")
+				print("Human died")
 			else
 				LivesLeft = 0
 				actor.RemoveTag(CharacterController, self.OpForTeamTag)
 				-- clear this AI from future consideration
-				--print("AI died")
+				print("AI died")
 			end
 
-			if gamemode.GetRoundStage() == "DTASSetup" and 
-			self.FlagCarrierIsAI == false and
-			player.GetPlayerState(CharacterController) == self.FlagCarrier and
-			self.FlagPlacement == nil then
+			local ShouldWeAbandonRound = false
 
+			if ai.IsAI(CharacterController, nil) then
+				if gamemode.GetRoundStage() == "DTASSetup" and
+				self.FlagCarrierIsAI == true and
+				CharacterController ~= nil and
+				CharacterController == self.FlagCarrier and
+				self.FlagPlacement == nil then	
+					ShouldWeAbandonRound = true
+				end
+			else
+				if gamemode.GetRoundStage() == "DTASSetup" and
+				self.FlagCarrierIsAI == false and
+				player.GetPlayerState(CharacterController) == self.FlagCarrier and
+				self.FlagPlacement == nil then
+					ShouldWeAbandonRound = true
+				end
+			end
+
+			if ShouldWeAbandonRound then
 				-- self.FlagPlacement == nil means flag is not placed yet
 				self:AbandonRound("FlagCarrierDiedOrLeft")
-
 			end
 
 			if gamemode.GetRoundStage() ~= "PostRoundWait" then
 				-- don't want to do scoring once round is over
 
-				local KillerPlayerState = nil
-				local KilledPlayerState = player.GetPlayerState(CharacterController)
-				
-				if KillerController ~= nil then
-					KillerPlayerState = player.GetPlayerState(KillerController)
-				end
-				
-				local KillerTeam = actor.GetTeamId( KillerController ) 
-				local KilledTeam = actor.GetTeamId( CharacterController )
+				local KilledTeam, KilledPlayerState
+				local KillerTeam, KillerPlayerState
 
+				-- if CharacterController or KillerController is (AI or nil), XXXTeam will be 0 (no team) and XXXPlayerState will be nil
+				KilledTeam, KilledPlayerState = self:GetSafeTeamAndPlayerState( CharacterController )
+				KillerTeam, KillerPlayerState = self:GetSafeTeamAndPlayerState( KillerController )
+		
 				-- do scoring stuff
 				if KillerController ~= nil then
 							
 					if KillerTeam ~= KilledTeam then
-						self:AwardPlayerScore( KillerPlayerState, "Killed" )
+						if KillerPlayerState ~= nil then
+							self:AwardPlayerScore( KillerPlayerState, "Killed" )
+						end
 						self:AwardTeamScore( KillerTeam, "Killed" )
 						
 						-- award score to everyone in proximity of killer
@@ -3709,11 +3723,13 @@ function DTAS:OnCharacterDied(Character, CharacterController, KillerController)
 						
 						local SomeoneWasInRange = false
 						
-						for _, Player in ipairs(KillerTeamList) do
-							if Player ~= KillerPlayerState then
-								if self:GetDistanceBetweenPlayers(Player, KillerPlayerState, false) <= self.ScoringKillProximity then
-									self:AwardPlayerScore( Player, "InRangeOfKill" )
-									SomeoneWasInRange = true
+						if KillerPlayerState ~= nil then
+							for _, Player in ipairs(KillerTeamList) do
+								if Player ~= KillerPlayerState then
+									if self:GetDistanceBetweenPlayers(Player, KillerPlayerState, false) <= self.ScoringKillProximity then
+										self:AwardPlayerScore( Player, "InRangeOfKill" )
+										SomeoneWasInRange = true
+									end
 								end
 							end
 						end
@@ -3726,7 +3742,9 @@ function DTAS:OnCharacterDied(Character, CharacterController, KillerController)
 					
 					else
 						-- suicides count as TKs
-						self:AwardPlayerScore( KillerPlayerState, "TeamKill" )
+						if KillerPlayerState ~= nil then
+							self:AwardPlayerScore( KillerPlayerState, "TeamKill" )
+						end
 						self:AwardTeamScore( KillerTeam, "TeamKill" )
 						
 					end
@@ -3742,34 +3760,48 @@ function DTAS:OnCharacterDied(Character, CharacterController, KillerController)
 						if self:IsInFlagRange( CharacterController ) and KillerTeam ~= KilledTeam then
 						-- died in range, currently we'll give points to either side (att/def)
 						-- TKs and suicides don't count
-							self:AwardPlayerScore( KilledPlayerState, "DiedInRange")
+							if KilledPlayerState ~= nil then
+								self:AwardPlayerScore( KilledPlayerState, "DiedInRange")
+							end
 							
-							if KillerTeam == self.DefendingTeam.TeamId then
-								self:AwardPlayerScore( KillerPlayerState, "PreventedCapture")
-								self:AwardTeamScore( KillerTeam, "PreventedCapture")
-								-- can only be awarded once
+							if KillerPlayerState ~= nil then
+								if KillerTeam == self.DefendingTeam.TeamId then
+									self:AwardPlayerScore( KillerPlayerState, "PreventedCapture")
+									self:AwardTeamScore( KillerTeam, "PreventedCapture")
+									-- can only be awarded once
+								end
 							end
 						end
 					end
 				else
 					-- fox hunt mode
 			
-					if self.FoxPlayer ~= nil and
-					(KilledPlayerState == self.FoxPlayer or CharacterController == self.FoxPlayer) then
-					-- KilledPlayer is the asset, CharacterController is FoxPlayer if it is AI
-						--print("OnCharacterDied: fox was killed, KillerTeam = " .. KillerTeam)
-					
-						if KillerTeam == self.AttackingTeam.TeamId then
-						-- suicides and TKs don't count
-							self:AwardPlayerScore( KillerPlayerState, "KilledAsset")
+					local KillerKilledFox = false
+			
+					if self.FoxPlayer ~= nil then
+						if ai.IsAI(CharacterController, nil) then
+							if CharacterController == self.FoxPlayer then
+								KillerKilledFox = true
+							end
+						else
+							if KilledPlayerState == self.FoxPlayer then
+								KillerKilledFox = true
+							end
 						end
-						
-						self:AwardTeamScore( self.AttackingTeam.TeamId, "AssetKilled" )
-						
-						local LivingDefenders = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
-						if #LivingDefenders > 0 then
-							self:AwardPlayerScore( KilledPlayerState, "DyingAssetDefsAlive")
-							self:AwardTeamScore(  self.DefendingTeam.TeamId, "AssetDiedDefsAlive" )
+
+						if KillerKilledFox then	
+							if KillerTeam == self.AttackingTeam.TeamId and KillerPlayerState ~= nil then
+							-- suicides and TKs don't count
+								self:AwardPlayerScore( KillerPlayerState, "KilledAsset")
+							end
+							
+							self:AwardTeamScore( self.AttackingTeam.TeamId, "AssetKilled" )
+							
+							local LivingDefenders = gamemode.GetPlayerListByLives(self.DefendingTeam.TeamId, 1, true)
+							if #LivingDefenders > 0 and KilledPlayerState ~= nil then
+								self:AwardPlayerScore( KilledPlayerState, "DyingAssetDefsAlive")
+								self:AwardTeamScore(  self.DefendingTeam.TeamId, "AssetDiedDefsAlive" )
+							end
 						end
 					end
 				end
@@ -3786,6 +3818,18 @@ function DTAS:OnCharacterDied(Character, CharacterController, KillerController)
 
 		end
 	end
+end
+
+
+function DTAS:GetSafeTeamAndPlayerState(Controller)
+	if Controller == nil or ai.IsAI(Controller, nil) then
+		return 0, nil
+	end
+
+	local Team = actor.GetTeamId(Controller)
+	local PlayerState = player.GetPlayerState(Controller)
+	
+	return Team, PlayerState
 end
 
 
@@ -3882,7 +3926,7 @@ end
 function DTAS:GetTotalPlayersOnTeamIncludingAI(TeamId)
 
 		local LivingHumans = gamemode.GetPlayerListByLives(TeamId, 1, true)
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, TeamId, 255)
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, TeamId, 255)
 		return #LivingHumans + #OpForControllers
 end
 
@@ -4085,28 +4129,23 @@ function DTAS:GetCorrectedValidatedSpawnLocation( PlayerLocation, PlayerCapsuleH
 end
 
 
-
-
-
 function DTAS:PlaceFlag()
--- return true is successful, return false for failure (end round)
-
-    -- place the flag in the level:
+	-- return true is successful, return false for failure (end round)
+	
 	if self.FlagCarrierIsAI and self.FlagCarrier ~= nil then
-
-	-- deal with AI flag carrier scenario first
+		-- deal with AI flag carrier scenario first - flag does not yet exist, so just place it in the world
+		-- (a player flag carrier is given the flag (and self.Flag is set) in SelectedFlagCarrier() already)
 	
 		-- don't physically place flag (yet)
 		local PlayerChar = player.GetCharacter( self.FlagCarrier )
 		if PlayerChar ~= nil then
 			local PlayerLocation = actor.GetLocation( PlayerChar )	
-			PlayerLocation.z = PlayerLocation.z - 80
 			self.Flag = gameplaystatics.PlaceItemAt( '/Game/GroundBranch/Inventory/Equipment/Flag/BP_CarriedGameModeFlag.BP_CarriedGameModeFlag_C', PlayerLocation, self:GetRandomUprightRotation() )
 		end
 	end
 
 	if self.FlagCarrier == nil or self.Flag == nil then
-		-- hmmm this shouldn't happen
+		-- this shouldn't happen
 		
 		self:SelectFlagCarrier()
 		
@@ -4118,12 +4157,12 @@ function DTAS:PlaceFlag()
 	
 	-- self.Flag has been validated as being non-nil
 	
-	GetLuaComp(self.Flag).Place()
-	-- is reference to Flag still valid? Does it persist as an object?
-	-- what if flag is already placed by player? -> this still seems to work, or at least, not to fail
+	if not self.FlagCarrierIsAI then
+		GetLuaComp(self.Flag).Place()
+		-- flag is already placed if AI was placing it
+	end
 
 	local FlagLocation = actor.GetLocation( self.Flag )
-
 	local QueryExtent = {}
 	
 	-- we're using less than the full radius and less than half the height because ideally we should have navmesh fairly close to flag
@@ -4133,9 +4172,7 @@ function DTAS:PlaceFlag()
 	QueryExtent.y = self.ServerSettings.CaptureRadius.Value * 100 * 0.7
 	QueryExtent.z = self.ServerSettings.CaptureHeight.Value * 100 * 0.35
 		
-	local TestLocation
-			
-	TestLocation = ai.ProjectPointToNavigation( FlagLocation, QueryExtent )
+	local TestLocation = ai.ProjectPointToNavigation( FlagLocation, QueryExtent )
 	-- we don't care where the navmesh is, just whether a point was found (returns vector) or not (returns nil)
 					
 	if TestLocation == nil then

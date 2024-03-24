@@ -208,7 +208,7 @@ end
 function assassination:CheckBluForCountTimer()
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, true)
 	if #PlayersWithLives == 0 then
-		timer.Clear(self, "CheckOpForExfil")
+		timer.Clear("CheckOpForExfil")
 		gamemode.AddGameStat("Result=None")
 		if self.OpForLeaderEliminated == true then
 			gamemode.AddGameStat("Summary=BluForExfilFailed")

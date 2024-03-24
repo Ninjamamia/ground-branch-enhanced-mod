@@ -27,7 +27,7 @@ function teameliminationvalidate:ValidateLevel()
 			
 				local InsertionPointName = gamemode.GetInsertionPointName(InsertionPoint)
 				if InsertionPointName == "" then
-						table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' has a blank name")
+						table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' has a blank name")
 				else
 					local InsertionPointTeam = actor.GetTeamId(InsertionPoint)
 					
@@ -36,7 +36,7 @@ function teameliminationvalidate:ValidateLevel()
 					elseif InsertionPointTeam == 2 then
 						FoundTeam2Use = true
 					elseif InsertionPointTeam ~= 255 then
-						table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' has invalid team ID " .. InsertionPointTeam .. " (should be 1 for Blue Team, 2 for Red Team, or 255 for either)")
+						table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' has invalid team ID " .. InsertionPointTeam .. " (should be 1 for Blue Team, 2 for Red Team, or 255 for either)")
 					end
 				end
 			
@@ -46,7 +46,7 @@ function teameliminationvalidate:ValidateLevel()
 					local AssociatedInsertionPointName = gamemode.GetInsertionPointName(PlayerStart)
 					
 					if AssociatedInsertionPointName == "" or  AssociatedInsertionPointName == "None" then
-						table.insert(ErrorsFound, "Player start '" .. actor.GetName(PlayerStart) .. "' has a blank group name")
+						table.insert(ErrorsFound, "Player start '@" .. actor.GetName(PlayerStart) .. "' has a blank group name")
 					elseif InsertionPointName ~= "" and AssociatedInsertionPointName == InsertionPointName then	
 					-- if playerstart is associated with InsertionPoint
 						PlayerStartCount = PlayerStartCount + 1
@@ -67,7 +67,7 @@ function teameliminationvalidate:ValidateLevel()
 				for __, Tag in ipairs(InsertionPointTags) do
 				if Tag ~= "MissionActor" then
 						if Tag == "None" then
-							table.insert(ErrorsFound, "Insertion point '" .. actor.GetName(InsertionPoint) .. "' has a blank tag")
+							table.insert(ErrorsFound, "Insertion point '@" .. actor.GetName(InsertionPoint) .. "' has a blank tag")
 						else
 							if InsertionPointTagCount[ Tag ] == nil then
 								InsertionPointTagCount[ Tag ] = 1
@@ -86,17 +86,30 @@ function teameliminationvalidate:ValidateLevel()
 			table.insert(ErrorsFound, "Warning: spawns are set up as fixed spawns (2 spawns, set as teams 1 and 2) and won't be rotated/randomised")
 		else
 		
-			if FoundTeam1Use then
-				table.insert(ErrorsFound, "Warning: found insertion points for team 1 - team IDs are now disregarded (use Team Id 255 instead)")
-			end
-			if FoundTeam2Use then
-				table.insert(ErrorsFound, "Warning: found insertion points for team 2 - team IDs are now disregarded (use Team Id 255 instead)")
-			end
+			-- while the following is true, the Team IDs are being set by the game mode when the mission loads in, so just disregard
+			
+			--if FoundTeam1Use then
+			--	table.insert(ErrorsFound, "Warning: found insertion points for team 1 - team IDs are now disregarded (use Team Id 255 instead)")
+			--end
+			--if FoundTeam2Use then
+			--	table.insert(ErrorsFound, "Warning: found insertion points for team 2 - team IDs are now disregarded (use Team Id 255 instead)")
+			--end
 			
 			for Tag, TagCount in pairs(InsertionPointTagCount) do
 				if TagCount == 1 then
 					table.insert(ErrorsFound, "Warning: only found one insertion point with group tag '" .. Tag .. "'")
 				end
+			end
+		end
+	
+		-- new stand-alone collision check for player starts
+
+		for i, TestActor in ipairs(AllPlayerStarts) do
+			if actor.IsColliding(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+			end
+			if not ai.IsOnNavMesh(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
 			end
 		end
 	

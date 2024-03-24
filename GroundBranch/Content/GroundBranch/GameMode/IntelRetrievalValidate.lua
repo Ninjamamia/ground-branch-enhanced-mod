@@ -68,13 +68,13 @@ function intelretrievalvalidate:ValidateLevel()
 	
 	------- phase 1 - check priority tags of the ai spawns, make sure they are allocated evenly
 
-	local AllSpawns = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
+	local AllAISpawns = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
 
-	if #AllSpawns == 0 then
+	if #AllAISpawns == 0 then
 		table.insert(ErrorsFound, "No AI spawns found")
 	else
-		if #AllSpawns < 30 then
-			table.insert(ErrorsFound, "Only " .. #AllSpawns .. " AI spawn points provided. This is a little low - aim for at least 30 and ideally 50+")
+		if #AllAISpawns < 30 then
+			table.insert(ErrorsFound, "Only " .. #AllAISpawns .. " AI spawn points provided. This is a little low - aim for at least 30 and ideally 50+")
 		end
 		
 		local CurrentPriorityGroup = 1
@@ -99,10 +99,10 @@ function intelretrievalvalidate:ValidateLevel()
 					
 					if CurrentGroupTotal == 0 then
 						table.insert(ErrorsFound, "(Non ideal) No spawns found within priority range " .. StartPriority .. " to " .. EndPriority)
-					elseif CurrentPriorityGroup > 1 and CurrentGroupTotal < 0.15 * #AllSpawns then
+					elseif CurrentPriorityGroup > 1 and CurrentGroupTotal < 0.15 * #AllAISpawns then
 						-- it's ok if the first priority group is small
-						local pcnumber = tonumber(string.format("%.0f", 100 * (CurrentGroupTotal / #AllSpawns)))
-						table.insert(ErrorsFound, "(Non ideal) Relatively few spawns (" .. CurrentGroupTotal .. " of " .. #AllSpawns ..", or " .. pcnumber.. "% of total) are assigned a priority within priority range " .. StartPriority .. " to " .. EndPriority)
+						local pcnumber = tonumber(string.format("%.0f", 100 * (CurrentGroupTotal / #AllAISpawns)))
+						table.insert(ErrorsFound, "(Non ideal) Relatively few spawns (" .. CurrentGroupTotal .. " of " .. #AllAISpawns ..", or " .. pcnumber.. "% of total) are assigned a priority within priority range " .. StartPriority .. " to " .. EndPriority)
 					end
 
 					CurrentPriorityGroup = CurrentPriorityGroup + 1
@@ -110,12 +110,23 @@ function intelretrievalvalidate:ValidateLevel()
 				end
 			end
 		
-			for j, SpawnPoint in ipairs(AllSpawns) do
+			for j, SpawnPoint in ipairs(AllAISpawns) do
 				if actor.HasTag(SpawnPoint, PriorityTag) then
 					CurrentGroupTotal = CurrentGroupTotal + 1
 				end
 			end
 
+		end
+	end
+		
+	-- new stand-alone collision check for AI spawns
+
+	for i, TestActor in ipairs(AllAISpawns) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI spawn point '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI spawn point '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
 		end
 	end
 		
@@ -127,7 +138,7 @@ function intelretrievalvalidate:ValidateLevel()
 	local SquadIdProblem = false
 	local SquadNameProblem = false
 
-	for _, SpawnPoint in ipairs(AllSpawns) do
+	for _, SpawnPoint in ipairs(AllAISpawns) do
 		SpawnInfo = ai.GetSpawnPointInfo(SpawnPoint)
 		
 		local CurrentSquad
@@ -281,6 +292,16 @@ function intelretrievalvalidate:ValidateLevel()
 			end
 		end
 		
+		-- new stand-alone collision check for player starts
+
+		for i, TestActor in ipairs(AllPlayerStarts) do
+			if actor.IsColliding(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+			end
+			if not ai.IsOnNavMesh(TestActor) then
+				table.insert(ErrorsFound, "Warning: player start '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+			end
+		end
 		
 		if #AllAttackerInsertionPointNames == 0 then
 			table.insert(ErrorsFound, "No player insertion points found")
@@ -306,7 +327,7 @@ function intelretrievalvalidate:ValidateLevel()
 	else
 		for _, Laptop in ipairs(AllLaptops) do
 			if not self:ActorHasTagInList( Laptop, AllDefenderInsertionPointNames ) then
-				table.insert(ErrorsFound, "Laptop '" .. actor.GetName(Laptop) .. "' does not have a tag corresponding to a defender insertion point")
+				table.insert(ErrorsFound, "Laptop '@" .. actor.GetName(Laptop) .. "' does not have a tag corresponding to a defender insertion point")
 			end
 
 			for __, InsertionPointName in ipairs(AllDefenderInsertionPointNames) do
@@ -347,11 +368,11 @@ function intelretrievalvalidate:ValidateLevel()
 				if string.lower( string.sub(Tag, 1, 7) ) == "extract" then
 					table.insert(AllExtractionMarkerNames, Tag)	
 				elseif Tag == "None" then
-					table.insert(ErrorsFound, "Extraction point '" .. actor.GetName(ExtractionPoint) .. "' has a blank tag")
+					table.insert(ErrorsFound, "Extraction point '@" .. actor.GetName(ExtractionPoint) .. "' has a blank tag")
 				elseif string.lower( string.sub(Tag, 1, 3) ) ~= 'add' and Tag ~= "MissionActor" then
 					if not self:ValueIsInTable( AllAttackerInsertionPointNames, Tag) then
 						-- if an attacker insertion point name is used as a tag, that insertion point is disabled if the extraction zone is enabled
-						table.insert(ErrorsFound, "Extraction point '" .. actor.GetName(ExtractionPoint) .. "' has an apparently superfluous tag '" .. Tag .. "'. Use a tag beginning 'Extract' to attach AI spawns to this extraction point")
+						table.insert(ErrorsFound, "Extraction point '@" .. actor.GetName(ExtractionPoint) .. "' has an apparently superfluous tag '" .. Tag .. "'. Use a tag beginning 'Extract' to attach AI spawns to this extraction point")
 					end
 				end
 			end
@@ -362,20 +383,20 @@ function intelretrievalvalidate:ValidateLevel()
 
 	local AllAIExtractionMarkerNames = {}
 	
-	for _, SpawnPoint in ipairs(AllSpawns) do
+	for _, SpawnPoint in ipairs(AllAISpawns) do
 		local SpawnPointTags = actor.GetTags( SpawnPoint )
 		for __, Tag in ipairs(SpawnPointTags) do
 			if string.lower( string.sub(Tag, 1, 8) ) ~= 'aispawn_' and Tag ~= "MissionActor" then
 				if string.lower( string.sub(Tag, 1, 7) ) == "extract" then
 					table.insert(AllAIExtractionMarkerNames, Tag)
 					if not self:ValueIsInTable( AllExtractionMarkerNames, Tag) and not self:ValueIsInTable( AllDefenderInsertionPointNames, Tag) then
-						table.insert(ErrorsFound, "AI spawn point '" .. actor.GetName(SpawnPoint) .. "' has an 'extract' tag (" .. Tag .. ") not matching an extraction point")
+						table.insert(ErrorsFound, "AI spawn point '@" .. actor.GetName(SpawnPoint) .. "' has an 'extract' tag (" .. Tag .. ") not matching an extraction point")
 					end
 				else
 					if Tag == "None" then
-						table.insert(ErrorsFound, "AI spawn point '" .. actor.GetName(SpawnPoint) .. "' has a blank tag")
+						table.insert(ErrorsFound, "AI spawn point '@" .. actor.GetName(SpawnPoint) .. "' has a blank tag")
 					elseif not self:ValueIsInTable( AllDefenderInsertionPointNames, Tag) then
-						table.insert(ErrorsFound, "AI spawn point '" .. actor.GetName(SpawnPoint) .. "' has an apparently superfluous tag '" .. Tag .. "' that does not match a laptop location or extraction zone")
+						table.insert(ErrorsFound, "AI spawn point '@" .. actor.GetName(SpawnPoint) .. "' has an apparently superfluous tag '" .. Tag .. "' that does not match a laptop location or extraction zone")
 					end
 				end
 			end
@@ -399,7 +420,7 @@ function intelretrievalvalidate:ValidateLevel()
 	for _,GuardPoint in ipairs(AllGuardPoints) do
 		GuardPointName = ai.GetGuardPointName(GuardPoint)
 		if GuardPointName == 'None' then
-			table.insert(ErrorsFound, "AI guard point '" .. actor.GetName(GuardPoint) .. "' has group name set to None")
+			table.insert(ErrorsFound, "AI guard point '@" .. actor.GetName(GuardPoint) .. "' has group name set to None")
 		else
 			if GuardPointNames[GuardPointName] == nil then
 				GuardPointNames[GuardPointName] = false
@@ -421,12 +442,26 @@ function intelretrievalvalidate:ValidateLevel()
 	end
 
 	if DumpGuardPoints then
+		local GuardPointList = {}
+
 		print("GuardPoints")
 		print("-----------")
 		for GuardPointName, _ in pairs(GuardPointNames) do
-			print (GuardPointName)
+			--print (GuardPointName)
+			-- create an array where guard point names are the values, not the keys - then we can sort it
+			table.insert(GuardPointList, GuardPointName)
 		end
 		
+		local function reversesort_alphabetical(a, b)
+		return a:lower() > b:lower()
+		end
+		table.sort(GuardPointList, reversesort_alphabetical)
+	
+		for _, GuardPointName in ipairs(GuardPointList) do
+			print (GuardPointName)
+		end
+	
+		print(" ")
 		print("Guard squads")
 		print("------------")
 		for _, CurrentSquad in pairs(SquadsBySquadId) do
@@ -436,12 +471,74 @@ function intelretrievalvalidate:ValidateLevel()
 		end
 	end
 
+	-- new stand-alone collision check for guardpoints
+
+	for i, TestActor in ipairs(AllGuardPoints) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI guard point '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI guard point '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+		end
+	end
+
 	---- phase 7: quick check of patrol routes
 	local AllPatrolRoutes = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIPatrolRoute')
 	if #AllPatrolRoutes == 0 then
 		table.insert(ErrorsFound, "Warning: no AI patrol routes found")
 	end
 
+	-- new stand-alone collision check for patrol routes
+
+	for i, TestActor in ipairs(AllPatrolRoutes) do
+		if actor.IsColliding(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI patrol route '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+		if not ai.IsOnNavMesh(TestActor) then
+			table.insert(ErrorsFound, "Warning: AI patrol route '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
+		end
+	end
+
+	-- new!! check line of sight between (centre of) patrol route actors
+	local PatrolRoutesChecked = {}
+	local IgnoreActors = {}
+	
+	-- create ignore list containing all AI spawns and all AI patrol routes. Not going to be super efficient but necessary.
+	-- (AI spawns are often placed near/between patrol points)
+	for _, Actor in ipairs(AllAISpawns) do
+		table.insert(IgnoreActors, Actor)
+	end
+	for _, Actor in ipairs(AllPatrolRoutes) do
+		table.insert(IgnoreActors, Actor)
+	end
+
+	for _, PatrolRouteActor in ipairs(AllPatrolRoutes) do
+		local LinkedPatrolRouteActors = gameplaystatics.GetPatrolRouteLinkedActors(PatrolRouteActor)
+		--print("Checking " .. #LinkedPatrolRouteActors .. " connections for patrol route '@" .. actor.GetName(PatrolRouteActor) .. "'")
+		PatrolRoutesChecked[actor.GetName(PatrolRouteActor)] = true
+		
+		for __, LinkedPatrolRouteActor in ipairs(LinkedPatrolRouteActors) do
+			if PatrolRoutesChecked[actor.GetName(LinkedPatrolRouteActor)] == nil then
+				local VisibilityTrace = gameplaystatics.TraceVisible( actor.GetLocation(PatrolRouteActor), actor.GetLocation(LinkedPatrolRouteActor), IgnoreActors, true) 
+				if VisibilityTrace ~= nil then
+					table.insert(ErrorsFound, "AI patrol route '@" .. actor.GetName(PatrolRouteActor) .. "' appears not to have clear sight of patrol route '" .. actor.GetName(LinkedPatrolRouteActor) .. "'")
+				end
+			end
+		end
+	end
+
+	-- new standalone check on collision for laptops - moved to end because these are annoying and hard to shift
+
+	local AtLeastOneCollided = false
+	for i, TestActor in ipairs(AllLaptops) do
+		if actor.IsColliding(TestActor) then
+			AtLeastOneCollided = true
+			table.insert(ErrorsFound, "Warning: Laptop '@" .. actor.GetName(TestActor) .. "' may be colliding with the map")
+		end
+	end
+	if AtLeastOneCollided then
+		table.insert(ErrorsFound, "(Make sure to deselect all laptops before running validation as selected actors may incorrectly register as colliding)")
+	end
 
 	return ErrorsFound
 end

@@ -1,4 +1,4 @@
-local terroristhuntvalidate = {
+local defusevalidate = {
 
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
 		"AISpawn_6_10", "AISpawn_11_20", "AISpawn_21_30", "AISpawn_31_40", "AISpawn_41_50" },
@@ -12,7 +12,7 @@ local terroristhuntvalidate = {
 }
 
 
-function terroristhuntvalidate:StripNumbersFromName(ObjectName)
+function defusevalidate:StripNumbersFromName(ObjectName)
 	while string.len(ObjectName)>1 and ((string.sub(ObjectName, -1, -1)>='0' and string.sub(ObjectName, -1, -1)<='9') or string.sub(ObjectName, -1, -1)=='_') do
 		ObjectName = string.sub(ObjectName, 1, -2)
 	end
@@ -21,12 +21,80 @@ function terroristhuntvalidate:StripNumbersFromName(ObjectName)
 end
 
 
-function terroristhuntvalidate:ValidateLevel()
+function defusevalidate:ValidateLevel()
 	-- new feature to help mission editor validate levels
 
 	local ErrorsFound = {}
 	
-	------- phase 1 - check priority tags of the ai spawns, make sure they are allocated evenly
+	---- phase 1: check bombs and bomb tags
+	
+	local AllBombs = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/GameMode/BP_BigBomb.BP_BigBomb_C')
+	local NumGroups = 0
+	local GroupedBombs = {}
+
+	if #AllBombs == 0 then
+		table.insert(ErrorsFound, "No bombs found at all!")
+	elseif #AllBombs < 4 then
+		table.insert(ErrorsFound, "Warning: " .. #AllBombs .. " bombs might be too few")
+	end
+
+	-- group bombs by actor tag:
+	
+	for i, Bomb in ipairs(AllBombs) do
+		local GroupTag = actor.GetTag(Bomb, 1)
+		if GroupTag ~= nil then
+			if GroupedBombs[GroupTag] == nil then
+				NumGroups = NumGroups + 1
+				GroupedBombs[GroupTag] = {}
+			end
+			table.insert(GroupedBombs[GroupTag], Bomb)
+		else
+			table.insert(ErrorsFound, "Warning: Bomb '@" .. actor.GetName(Bomb) .. "' did not have a (group) tag set")
+		end
+				
+		GetLuaComp(Bomb).SetTeam(255)
+	end
+
+	-- new standalone check on collision for bombs
+
+	local AtLeastOneBombCollided = false
+	for i, Bomb in ipairs(AllBombs) do
+		if actor.IsColliding(Bomb) then
+			AtLeastOneBombCollided = true
+			table.insert(ErrorsFound, "Warning: Bomb '@" .. actor.GetName(Bomb) .. "' may be colliding with the map")
+		end
+	end
+	if AtLeastOneBombCollided then
+		table.insert(ErrorsFound, "(Make sure to deselect all bombs before running validation as selected bombs may incorrectly register as colliding)")
+	end
+
+	-- treat each bomb as its own group if no tags were found:
+	
+	if NumGroups < 1 then
+		NumGroups = #AllBombs
+		for i, Bomb in ipairs(AllBombs) do
+			GroupedBombs[i] = {}
+			table.insert(GroupedBombs[i], Bomb)
+		end
+	else
+		-- at this point, GroupedBombs{} has indices = bomb group name, and values = array containing references for bombs with that tag
+
+		local AverageBombsPerGroup = #AllBombs / NumGroups
+		
+		for GroupName, BombsInGroup in pairs(GroupedBombs) do
+			local BombNumberDeviation = math.abs( #BombsInGroup - AverageBombsPerGroup )
+			local BombProportionDeviation = BombNumberDeviation / #AllBombs
+			local avgint = tonumber(string.format("%.1f", AverageBombsPerGroup))
+			
+			if BombProportionDeviation > 0.07 and #BombsInGroup < AverageBombsPerGroup then
+				table.insert(ErrorsFound, "Warning: Bomb group '" .. GroupName .. "' has relatively few bombs assigned to it (" .. #BombsInGroup .. ", compared to average of " .. avgint .. ")")
+			elseif BombProportionDeviation > 0.06 and #BombsInGroup > AverageBombsPerGroup then
+				table.insert(ErrorsFound, "Warning: Bomb group '" .. GroupName .. "' has relatively many bombs assigned to it (" .. #BombsInGroup .. ", compared to average of " .. avgint .. ")")
+			end
+		end		
+	end
+
+	------- phase 2 - check priority tags of the ai spawns, make sure they are allocated evenly
 
 	local AllAISpawns = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
 
@@ -59,11 +127,11 @@ function terroristhuntvalidate:ValidateLevel()
 					EndPriority = self.SpawnPriorityGroupIDs[CurrentPriorityGroup]
 					
 					if CurrentGroupTotal == 0 then
-						table.insert(ErrorsFound, "(Non ideal) No spawns found within priority range " .. StartPriority .. " to " .. EndPriority)
+						table.insert(ErrorsFound, "Warning: No spawns found within priority range " .. StartPriority .. " to " .. EndPriority)
 					elseif CurrentPriorityGroup > 1 and CurrentGroupTotal < 0.15 * #AllAISpawns then
 						-- it's ok if the first priority group is small
 						local pcnumber = tonumber(string.format("%.0f", 100 * (CurrentGroupTotal / #AllAISpawns)))
-						table.insert(ErrorsFound, "(Non ideal) Relatively few spawns (" .. CurrentGroupTotal .. " of " .. #AllAISpawns ..", or " .. pcnumber.. "% of total) are assigned a priority within priority range " .. StartPriority .. " to " .. EndPriority)
+						table.insert(ErrorsFound, "Warning: Relatively few spawns (" .. CurrentGroupTotal .. " of " .. #AllAISpawns ..", or " .. pcnumber.. "% of total) are assigned a priority within priority range " .. StartPriority .. " to " .. EndPriority)
 					end
 
 					CurrentPriorityGroup = CurrentPriorityGroup + 1
@@ -98,6 +166,9 @@ function terroristhuntvalidate:ValidateLevel()
 	local SpawnInfo
 	local SquadIdProblem = false
 	local SquadNameProblem = false
+
+	local GroupedBombSpawns = {}
+	local NumGroupAI = 0
 
 	for _, SpawnPoint in ipairs(AllAISpawns) do
 		SpawnInfo = ai.GetSpawnPointInfo(SpawnPoint)
@@ -155,6 +226,26 @@ function terroristhuntvalidate:ValidateLevel()
 				table.insert(ErrorsFound, "AI Spawn points for SquadID " .. SpawnInfo.SquadId .. " have multiple squad orders")
 			end
 		end
+		
+		-- now check bomb tags
+				
+		local SpawnPointTags = actor.GetTags(SpawnPoint)
+
+		for _, BombGroupTag in ipairs(SpawnPointTags) do
+			if BombGroupTag ~= "MissionActor" and string.sub(BombGroupTag, 1, 8) ~= "AISpawn_" then
+				if GroupedBombs[BombGroupTag] == nil then
+					table.insert(ErrorsFound, "Warning: spawn point '@" .. actor.GetName(SpawnPoint) .. "' has tag '" .. BombGroupTag .. "' that does not correspond to a bomb group")
+				else
+					if GroupedBombSpawns[BombGroupTag] == nil then
+						GroupedBombSpawns[BombGroupTag] = 1
+					else
+						GroupedBombSpawns[BombGroupTag] = GroupedBombSpawns[BombGroupTag] + 1
+					end
+					
+					NumGroupAI = NumGroupAI + 1
+				end
+			end
+		end
 	end
 
 	if SquadIdProblem or SquadNameProblem then
@@ -173,7 +264,29 @@ function terroristhuntvalidate:ValidateLevel()
 		end
 	end
 	
-	----- phase 2 check insertion points and player starts
+	-- now check spawn allocations to bomb groups
+	
+	if NumGroups > 0 then
+		local AverageAIPerGroup = NumGroupAI / NumGroups
+		
+		for GroupName, _ in pairs(GroupedBombs) do
+			if GroupedBombSpawns[GroupName] == nil then
+				table.insert(ErrorsFound, "Warning: no AI spawn points associated with bomb group '" .. GroupName .. "'")
+			else
+				local AINumberDeviation = math.abs( GroupedBombSpawns[GroupName] - AverageAIPerGroup )
+				local AIProportionDeviation = AINumberDeviation / NumGroupAI
+				local avgint = tonumber(string.format("%.1f", AverageAIPerGroup))
+				
+				if AIProportionDeviation > 0.07 and GroupedBombSpawns[GroupName] < AverageAIPerGroup then
+					table.insert(ErrorsFound, "Warning: Bomb group '" .. GroupName .. "' has relatively few AI spawns assigned to it (" .. GroupedBombSpawns[GroupName] .. ", compared to average of " .. avgint .. ")")
+				elseif AIProportionDeviation > 0.06 and GroupedBombSpawns[GroupName] > AverageAIPerGroup then
+					table.insert(ErrorsFound, "Warning: Bomb group '" .. GroupName .. "' has relatively many AI spawns assigned to it (" .. GroupedBombSpawns[GroupName] .. ", compared to average of " .. avgint .. ")")
+				end
+			end
+		end	
+	end	
+	
+	----- phase 3 check insertion points and player starts
 
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
 	if #AllInsertionPoints == 0 then
@@ -246,7 +359,7 @@ function terroristhuntvalidate:ValidateLevel()
 		end
 	end
 
-	--- phase 3 check guard groups
+	--- phase 4 check guard groups
 	
 	local AllGuardPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIGuardPoint')
 	
@@ -297,7 +410,7 @@ function terroristhuntvalidate:ValidateLevel()
 		for _, GuardPointName in ipairs(GuardPointList) do
 			print (GuardPointName)
 		end
-	
+
 		print(" ")
 		print("Guard squads")
 		print("------------")
@@ -319,23 +432,6 @@ function terroristhuntvalidate:ValidateLevel()
 		end
 	end
 
-
-	---- phase 4: quick check of new AI hotspots (new in 1033)
-	local AllHotspots = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIHotspot')
-	-- it is not mandatory to have hotspots - probably best avoided on small maps
-	
-	for _, Hotspot in ipairs(AllHotspots) do
-		local HotspotName = ai.GetAIHotspotName(Hotspot) 
-		if HotspotName == nil or HotspotName == "" or HotspotName == "None" then
-			table.insert(ErrorsFound, "AI hotspot '@" .. actor.GetName(Hotspot) .. "' does not have a Hotspot name set")
-		end
-	end
-	
-	if #AllHotspots == 1 then
-		table.insert(ErrorsFound, "Only one AI hotspot found. Are you sure about that?")
-	end
-
-
 	---- phase 5: check patrol routes
 	local AllPatrolRoutes = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIPatrolRoute')
 	if #AllPatrolRoutes == 0 then
@@ -352,7 +448,7 @@ function terroristhuntvalidate:ValidateLevel()
 			table.insert(ErrorsFound, "Warning: AI patrol route '@" .. actor.GetName(TestActor) .. "' does not appear to be contacting the navmesh")
 		end
 	end
-
+	
 	-- new!! check line of sight between (centre of) patrol route actors
 	local PatrolRoutesChecked = {}
 	local IgnoreActors = {}
@@ -365,13 +461,10 @@ function terroristhuntvalidate:ValidateLevel()
 	for _, Actor in ipairs(AllPatrolRoutes) do
 		table.insert(IgnoreActors, Actor)
 	end
-	for _, Actor in ipairs(AllHotspots) do
-		table.insert(IgnoreActors, Actor)
-	end
 
 	for _, PatrolRouteActor in ipairs(AllPatrolRoutes) do
 		local LinkedPatrolRouteActors = gameplaystatics.GetPatrolRouteLinkedActors(PatrolRouteActor)
-		--print("Checking " .. #LinkedPatrolRouteActors .. " connections for patrol route '@" .. actor.GetName(PatrolRouteActor) .. "'")
+		--print("Checking " .. #LinkedPatrolRouteActors .. " connections for patrol route '" .. actor.GetName(PatrolRouteActor) .. "'")
 		PatrolRoutesChecked[actor.GetName(PatrolRouteActor)] = true
 		
 		for __, LinkedPatrolRouteActor in ipairs(LinkedPatrolRouteActors) do
@@ -389,4 +482,4 @@ end
 
 
 
-return terroristhuntvalidate
+return defusevalidate

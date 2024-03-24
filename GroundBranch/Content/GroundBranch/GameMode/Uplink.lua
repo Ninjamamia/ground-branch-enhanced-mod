@@ -1,12 +1,30 @@
 local uplink = {
-	UseReadyRoom = true,
-	UseRounds = true,
 	StringTables = { "Uplink" },
 	
 	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022",
 	GameModeType = "PVP",
 	
-	-- Player teams
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+	
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+	AllowUnrestrictedRadio = false,
+	AllowUnrestrictedVoice = false,
+	SpectateForceFirstPerson = true,
+	SpectateFreeCam = false,
+	SpectateEnemies = false,
+	
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
 	
 	PlayerTeams = {
 		Blue = {
@@ -19,7 +37,9 @@ local uplink = {
 		},
 	},
 	
-	-- Mission settings
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
 	
 	Settings = {
 		RoundTime = {
@@ -46,9 +66,25 @@ local uplink = {
 			Value = 1,
 			AdvancedSetting = false,
 		},
+		BalanceTeams = {
+			Min = 0,
+			Max = 3,
+			Value = 3,
+			AdvancedSetting = false,
+		},
+		-- settings: 
+		-- 0 - off
+		-- 1 - light touch
+		-- 2 - aggressive
+		-- 3 - always
+		-- move players around to even up teams. For autobalance 'always', if an odd number of players, give the 1 extra to the attackers each round
+		-- (pick a random player to move but try to avoid moving the same person twice or more in a row)
+		
 	},
 	
-	-- Custom 'global' variables
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
 	
 	DefenderInsertionPoints = {},
 	DefenderInsertionPointNames = {},
@@ -73,10 +109,15 @@ local uplink = {
 	AllInsertionPointNames = {},
 	
 	CompletedARound = true,
+
+	-- recommended autobalance defaults
+	AutoBalanceLightTouchSetting = 0.19,
+	NumberOfPastTeamMovementsToTrack = 6,
 	
 	DebugMode = false,
 	-- allows attackers to see laptop location at start of round and move immediately
 }
+
 
 function uplink:PreInit()
 	self.SpawnProtectionVolumes = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBSpawnProtectionVolume')
@@ -108,7 +149,6 @@ function uplink:PreInit()
 			end
 		end
 	end	
-	
 	
 	------------------------------------------
 	-- now add laptop markers to opsboard
@@ -160,13 +200,13 @@ function uplink:PreInit()
 			print("Uplink: shouldn't get here, laptop list was empty. No marker added.")
 		end
 	end
-
-	
-	---------------------------
 	
 end
 
+
 function uplink:PostInit()
+	gamemode.ResetBalanceTeams(self.NumberOfPastTeamMovementsToTrack, self.AutoBalanceLightTouchSetting)
+
 	-- Set initial defending & attacking teams.
 	self.DefendingTeam = self.PlayerTeams.Red
 	self.AttackingTeam = self.PlayerTeams.Blue
@@ -175,6 +215,7 @@ function uplink:PostInit()
 	gamemode.SetPlayerTeamRole(self.AttackingTeam.TeamId, "Attacking")
 end
 
+
 function uplink:PlayerInsertionPointChanged(PlayerState, InsertionPoint)
 	if InsertionPoint == nil then
 		timer.Set("CheckReadyDown", self, self.CheckReadyDownTimer, 0.1, false);
@@ -182,6 +223,7 @@ function uplink:PlayerInsertionPointChanged(PlayerState, InsertionPoint)
 		timer.Set("CheckReadyUp", self, self.CheckReadyUpTimer, 0.25, false);
 	end
 end
+
 
 function uplink:PlayerReadyStatusChanged(PlayerState, ReadyStatus)
 	if ReadyStatus ~= "DeclaredReady" then
@@ -200,6 +242,7 @@ function uplink:PlayerReadyStatusChanged(PlayerState, ReadyStatus)
 	end
 end
 
+
 function uplink:CheckReadyUpTimer()
 	if gamemode.GetRoundStage() == "WaitingForReady" or gamemode.GetRoundStage() == "ReadyCountdown" then
 		local ReadyPlayerTeamCounts = gamemode.GetReadyPlayerTeamCounts(true)
@@ -208,6 +251,7 @@ function uplink:CheckReadyUpTimer()
 		if DefendersReady > 0 and AttackersReady > 0 or
 		(self.DebugMode and (DefendersReady > 0 or AttackersReady > 0)) then
 			if DefendersReady + AttackersReady >= gamemode.GetPlayerCount(true) then
+				self:DoThingsAtEndOfReadyCountdown()
 				gamemode.SetRoundStage("PreRoundWait")
 			else
 				gamemode.SetRoundStage("ReadyCountdown")
@@ -215,6 +259,7 @@ function uplink:CheckReadyUpTimer()
 		end
 	end
 end
+
 
 function uplink:CheckReadyDownTimer()
 	if gamemode.GetRoundStage() == "ReadyCountdown" then
@@ -227,6 +272,7 @@ function uplink:CheckReadyDownTimer()
 		end
 	end
 end
+
 
 function uplink:OnRoundStageSet(RoundStage)
 	if RoundStage == "WaitingForReady" then
@@ -249,12 +295,13 @@ function uplink:OnRoundStageSet(RoundStage)
 	end
 end
 
+
 function uplink:OnCharacterDied(Character, CharacterController, KillerController)
 	if gamemode.GetRoundStage() == "PreRoundWait" 
 	or gamemode.GetRoundStage() == "InProgress"
 	or gamemode.GetRoundStage() == "BlueDefenderSetup"
 	or gamemode.GetRoundStage() == "RedDefenderSetup" then
-		if CharacterController ~= nil then
+		if CharacterController ~= nil and not ai.IsAI(CharacterController) then
 			player.SetLives(CharacterController, player.GetLives(CharacterController) - 1)
 			
 			local PlayersWithLives = gamemode.GetPlayerListByLives(255, 1, false)
@@ -266,6 +313,7 @@ function uplink:OnCharacterDied(Character, CharacterController, KillerController
 		end
 	end
 end
+
 
 function uplink:CheckEndRoundTimer()
 	local AttackersWithLives = gamemode.GetPlayerListByLives(self.AttackingTeam.TeamId, 1, false)
@@ -294,6 +342,7 @@ function uplink:CheckEndRoundTimer()
 	end
 end
 
+
 function uplink:SetupRound()
 	if #self.AttackerInsertionPoints == nil then
 		self:ReportError("Could not find any attacker insertion points")
@@ -303,8 +352,7 @@ function uplink:SetupRound()
 		self:ReportError("Could not find any defender insertion points")
 		return
 	end
-
-
+	
 	if self.ShowAutoSwapMessage == true then
 		self.ShowAutoSwapMessage = false
 		
@@ -325,7 +373,6 @@ function uplink:SetupRound()
 	end
 
 	gamemode.ClearGameObjectives()
-	gamemode.ClearSearchLocations()
 
 	gamemode.AddGameObjective(self.DefendingTeam.TeamId, "DefendObjective", 1)
 	gamemode.AddGameObjective(self.AttackingTeam.TeamId, "CaptureObjective", 1)
@@ -336,6 +383,12 @@ function uplink:SetupRound()
 		actor.SetActive(InsertionPoint, true)
 		actor.SetTeamId(InsertionPoint, self.AttackingTeam.TeamId)
 	end
+
+	self:RandomiseObjectives()
+end
+
+
+function uplink:RandomiseObjectives()
 
 	if #self.DefenderInsertionPoints > 1 then
 		local NewRandomDefenderInsertionPoint = self.RandomDefenderInsertionPoint
@@ -349,14 +402,13 @@ function uplink:SetupRound()
 		self.RandomDefenderInsertionPoint = self.DefenderInsertionPoints[1]
 	end
 	
-	for i, InsertionPoint in ipairs(self.DefenderInsertionPoints) do
-		if InsertionPoint == self.RandomDefenderInsertionPoint then
-			actor.SetActive(InsertionPoint, true)
-			actor.SetTeamId(InsertionPoint, self.DefendingTeam.TeamId)
-		else
-			actor.SetActive(InsertionPoint, false)
-			actor.SetTeamId(InsertionPoint, 255)
-		end
+	if self.Settings.BalanceTeams.Value == 0 then
+		-- no team balancing, so activate spawns
+		self:ActivateDefenderInsertionPoints()
+	else
+		-- new in v1034: team balancing may give players knowledge of other team spawns, so hide them (and use GetSpawnInfo() to set spawn locations)
+		-- team balancing is on, so deactivate all spawns (causes 'click here to join' ops board setting)
+		self:DeactivateDefenderInsertionPoints()
 	end
 
 	local RealInsertionPointName = gamemode.GetInsertionPointName(self.RandomDefenderInsertionPoint)
@@ -377,6 +429,9 @@ function uplink:SetupRound()
 		for j, Laptop in ipairs(Laptops) do
 			local bActive = (Laptop == self.RandomLaptop)
 			actor.SetActive(Laptop, bActive)
+			
+			-- new in v1034: set laptop TeamId so only attackers get prompt and can use
+			actor.SetTeamId(Laptop, self.AttackingTeam.TeamId)
 		end
 	end
 
@@ -390,6 +445,8 @@ function uplink:SetupRound()
 			break
 		end
 	end
+
+	gamemode.ClearSearchLocations()
 
 	if #self.DefenderInsertionPointNames > 1 then
 		-- we now have the selected insertion point name as entry 1 in self.DefenderInsertionPointNames{}
@@ -440,7 +497,6 @@ function uplink:SetupRound()
 			self:ReportError("No location marker info found in connection with insertion point " .. CurrentInsertionPointName)
 		end
 	end
-	
 end
 
 
@@ -463,13 +519,11 @@ function uplink:GetInsertionPointNameForLaptop(Laptop)
 end
 
 
-
-
-
 function uplink:ReportError(ErrorMessage)
 	gamemode.BroadcastGameMessage("Error! " .. ErrorMessage, "Upper", 5.0)
 	print("-- Uplink game mode error!: " .. ErrorMessage)
 end
+
 
 function uplink:SwapTeams()
 	if self.DefendingTeam == self.PlayerTeams.Blue then
@@ -486,6 +540,7 @@ function uplink:SwapTeams()
 	self.ShowAutoSwapMessage = true
 end
 
+
 function uplink:ShouldCheckForTeamKills()
 	if gamemode.GetRoundStage() == "InProgress" 
 	or gamemode.GetRoundStage() == "BlueDefenderSetup"
@@ -495,34 +550,46 @@ function uplink:ShouldCheckForTeamKills()
 	return false
 end
 
+
 function uplink:PlayerCanEnterPlayArea(PlayerState)
-	if player.GetInsertionPoint(PlayerState) ~= nil then
-		return true
-	end
-	return false
+	-- as of v1034, just return true
+	return true
 end
 
+
 function uplink:OnRoundStageTimeElapsed(RoundStage)
-	if RoundStage == "PreRoundWait" then
+	if RoundStage == "ReadyCountdown" then
+
+		self:DoThingsAtEndOfReadyCountdown()
+
+	elseif RoundStage == "PreRoundWait" then
+	
 		if self.DefendingTeam == self.PlayerTeams.Blue then
 			gamemode.SetRoundStage("BlueDefenderSetup")
 		else
 			gamemode.SetRoundStage("RedDefenderSetup")
 		end
 		return true
+		
 	elseif RoundStage == "BlueDefenderSetup"
 		or RoundStage == "RedDefenderSetup" then
+		
 		gamemode.SetRoundStage("InProgress")
 		return true
+		
 	elseif RoundStage == "InProgress" then
+	
 		-- round timeout, so defenders win (new in 1033)
 		gamemode.AddGameStat("Result=Team" .. tostring(self.DefendingTeam.TeamId))
 		gamemode.AddGameStat("Summary=DefendObjective")
 		gamemode.AddGameStat("CompleteObjectives=DefendObjective")
 		gamemode.SetRoundStage("PostRoundWait")
+		
 	end
+	
 	return false
 end
+
 
 function uplink:TargetCaptured()
 	gamemode.AddGameStat("Summary=CaptureObjective")
@@ -530,6 +597,7 @@ function uplink:TargetCaptured()
 	gamemode.AddGameStat("Result=Team" .. tostring(self.AttackingTeam.TeamId))
 	gamemode.SetRoundStage("PostRoundWait")
 end
+
 
 function uplink:PlayerEnteredPlayArea(PlayerState)
 	if actor.GetTeamId(PlayerState) == self.AttackingTeam.TeamId and not self.DebugMode then
@@ -541,6 +609,7 @@ function uplink:PlayerEnteredPlayArea(PlayerState)
 	end
 end
 
+
 function uplink:DisableSpawnProtectionTimer()
 	if gamemode.GetRoundStage() == "InProgress" then
 		for i, SpawnProtectionVolume in ipairs(self.SpawnProtectionVolumes) do
@@ -548,8 +617,6 @@ function uplink:DisableSpawnProtectionTimer()
 		end
 	end
 end
-
-
 
 
 function uplink:GetModifierTextForObjective( TaggedActor )
@@ -592,7 +659,118 @@ function uplink:GetModifierTextForObjective( TaggedActor )
 	return ""
 end
 
+--------------------------
+-- new functions in v1034:
 
+function uplink:OnRandomiseObjectives()
+	-- new in v1034
+	
+	self:RandomiseObjectives()
+end
+
+
+function uplink:CanRandomiseObjectives()
+	-- new in v1034
+	
+	-- can randomise if defender spawns aren't hidden (i.e. if auto balance teams is not enabled) and there is more than 1 defender IP
+	return ((self.Settings.BalanceTeams.Value == 0) and (#self.DefenderInsertionPoints > 1))
+end
+
+
+function uplink:GetSpawnInfo(PlayerState)
+	if PlayerState == nil then
+		print("uplink:GetSpawnInfo(): PlayerState was nil")
+	end
+
+	local PlayerTeam = actor.GetTeamId(PlayerState)
+	
+	if PlayerTeam == nil then
+		print("uplink:GetSpawnInfo(): player team for player '" .. player.GetName(PlayerState) .. "' was unexpectedly nil")
+	elseif PlayerTeam == self.DefendingTeam.TeamId then 
+		return self.RandomDefenderInsertionPoint
+	end
+	
+	return nil
+end
+
+
+function uplink:GiveEveryoneReadiedUpStatus()
+	-- anyone who is waiting to ready up (in ops room) is assigned ReadiedUp status (just keep life simple)
+
+	local EveryonePlayingList = gamemode.GetPlayerListByStatus(255, "WaitingToReadyUp", true)
+
+	if #EveryonePlayingList > 0 then
+		for _, Player in ipairs(EveryonePlayingList) do
+			player.SetReadyStatus(Player, "DeclaredReady")
+		end
+	end
+end
+
+
+function uplink:ActivateDefenderInsertionPoints()
+	-- now make the insertion points live, so that PrepLatercomers() etc will work
+	for i, InsertionPoint in ipairs(self.DefenderInsertionPoints) do
+		if InsertionPoint == self.RandomDefenderInsertionPoint then
+			actor.SetActive(InsertionPoint, true)
+			actor.SetTeamId(InsertionPoint, self.DefendingTeam.TeamId)
+		else
+			actor.SetActive(InsertionPoint, false)
+			actor.SetTeamId(InsertionPoint, 255)
+		end
+	end
+end
+
+
+function uplink:DeactivateDefenderInsertionPoints()
+	for i, InsertionPoint in ipairs(self.DefenderInsertionPoints) do
+		actor.SetActive(InsertionPoint, false)
+		actor.SetTeamId(InsertionPoint, 255)
+	end
+end
+
+
+function uplink:DoThingsAtEndOfReadyCountdown()
+	--	called from OnRoundStageTimeElapsed() and CheckReadyUpTimer()
+	
+	self:ActivateDefenderInsertionPoints()
+	self:GiveEveryoneReadiedUpStatus()
+	-- do this before balancing teams
+	
+	self:BalanceTeams()
+end
+
+
+function uplink:BalanceTeams() 
+	-- new in v1034
+	-- ideally attackers have either same number as defenders or +1 more if uneven numbers?
+
+	gamemode.BalanceTeams(self.AttackingTeam.TeamId, self.DefendingTeam.TeamId, 1, self.Settings.BalanceTeams.Value)
+	-- AttackingTeamId, DefendingTeamId, IdealTeamSizeDifference, BalancingAggression
+end
+
+
+function uplink:OnMissionSettingsChanged(ChangedSettingsTable)
+	-- NB this may be called before some things are initialised
+	-- need to avoid infinite loops by setting new mission settings
+	
+	if gamemode.GetRoundStage() ~= 'WaitingForReady' then
+		-- new thing 2023/3/1 because changing time during mission might cause this to be called (bad)
+		print("uplink:OnMissionSettingsChanged(): not called during WaitingForReady, so ignored")
+		return
+	end
+	
+	if ChangedSettingsTable['BalanceTeams'] ~= nil then
+		-- show or hide spawns depending on whether we are balancing teams (0 = not)
+		if self.Settings.BalanceTeams.Value == 0 then
+			self:ActivateDefenderInsertionPoints()
+		else
+			self:DeactivateDefenderInsertionPoints()
+		end
+	end
+end
+
+-- end new functions in v1034
+-----------------------------
 
 function uplink:LogOut(Exiting)
 	if gamemode.GetRoundStage() == "PreRoundWait" 
