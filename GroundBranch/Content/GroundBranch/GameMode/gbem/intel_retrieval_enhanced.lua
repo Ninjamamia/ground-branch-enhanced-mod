@@ -11,14 +11,33 @@ local ExfilReveal = {
 	OnRoundStart = 1,
 	AfterCollectingIntel = 2,
 }
-
 local intelretrieval = {
-	UseReadyRoom = true,
-	UseRounds = true,
 	StringTables = { "gbem/intel_retrieval_enhanced" },
 
-	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022, (c) Ninjamamia, 2023",
+	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022, (c) Ninjamamia, 2023-2024",
 	GameModeType = "PVE",
+
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+	AllowUnrestrictedRadio = true,
+	AllowUnrestrictedVoice = true,
+	SpectateForceFirstPerson = false,
+	SpectateFreeCam = true,
+	SpectateEnemies = false,
+
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
 
 	PlayerTeams = {
 		BluFor = {
@@ -27,18 +46,22 @@ local intelretrieval = {
 		},
 	},
 
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
+
 	Settings = {
 		AiCountMin = {
 			Min = 0,
 			Max = 50,
 			Value = 15,
-			AdvancedSetting = false,
+			AdvancedSetting = true,
 		},
 		AiCountMax = {
 			Min = 0,
 			Max = 50,
 			Value = 15,
-			AdvancedSetting = false,
+			AdvancedSetting = true,
 		},
 		Difficulty = {
 			Min = 0,
@@ -117,10 +140,15 @@ local intelretrieval = {
 			AdvancedSetting = true,
 		}
 	},
+
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
+
 	OpForTeamTag = "OpFor",
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
 		"AISpawn_6_10", "AISpawn_11_20", "AISpawn_21_30", "AISpawn_31_40", "AISpawn_41_50" },
-		
+
 	SpawnPriorityGroupIDs = { "AISpawn_11_20", "AISpawn_31_40" },
 	-- these define the start of priority groups, e.g. group 1 = everything up to AISPawn_11_20 (i.e. from AISpawn_1 to AISpawn_6_10), group 2 = AISpawn_11_20 onwards, group 3 = AISpawn_31_40 onwards
 	-- everything in the first group is spawned as before. Everything is spawned with 100% certainty until the T count is reached
@@ -129,60 +157,60 @@ local intelretrieval = {
 
 	SpawnPriorityGroups = {},
 	-- this stores the actual groups as separate tables of spawns indexed by priority group
-	
+
 	LastSpawnPriorityGroup = 0,
 	-- the last priority group in which spawns were found
-	
+
 	ProportionOfPriorityGroupToSpawn = 0.7,
-	-- after processing all group 1 spawns, a total of N spawns remain. Spawn 70% of those as group 2 , then 70% of the remaining number as group 3, ... (or 100% if no more groups exist) 
-	
+	-- after processing all group 1 spawns, a total of N spawns remain. Spawn 70% of those as group 2 , then 70% of the remaining number as group 3, ... (or 100% if no more groups exist)
+
 	TotalNumberOfSpawnsFound = 0,
 	-- simple total of spawns placed in all priority groups
-		
+
 	AlwaysUseEveryPriorityOneSpawn = false,
 	-- if true, priority one spawns will be used up entirely before considering lower priorities
 	-- if false, behaviour differs depending on T count and number of P1 spawns. At least N% of spawns will be not P1 spawns, preventing all P1 spawns being used if need be
 	MinimumProportionOfNonPriorityOneSpawns = 0.15,
 	-- in which case, always use this proportion of non P1 spawns (15% by default), rounded down
-		
+
 	PriorityGroupedSpawns = {},
 	-- used for old AI spawn method
-	
+
 	MissionLocationMarkers = {},
 	-- for creating rings on ops board showing probably location of laptop
-	
+
 	AttackersInsertionPoints = {},
 
 	ExtractionPoints = {},
 	ExtractionPointMarkers = {},
 	ExtractionPointIndex = 0,
-	
+
 	Laptops = {},
 	LaptopLocationNames = {},
 	SelectedLaptop = nil,
 	SelectedLaptopLocationName = '',
-	
+
 	LaptopTag = "TheIntelIsALie",
 	-- this variable is relied on by the IntelTarget.lua script - do not delete
-	
-		
+
+
 	LaptopObjectiveMarkerName = "",
 	-- text displayed on search location marker (currently none)
-	
+
 	ForbiddenInsertionPoints = {},
 	-- list of 'defender' insertion points corresponding to currently selected/displayed search locations (typically size 2)
-	
+
 	TeamExfilWarning = false,
-	
+
 	CompletedARound = true,
-	
+
 	LaptopProximityAlertRadius = 5.0,
 	-- get a warning within 5 m of a laptop
-	
+
 	TestAllLaptops = false,
 
 	AllNavBlocks = {},
-	-- nav blockers, which we need to turn off when activating bum rush	
+	-- nav blockers, which we need to turn off when activating bum rush
 	BumRushModeActive = false,
 	-- if true, AI will be heading towards last known location of a random player
 	BumRushTargetUpdateTime = 20.0,
@@ -194,17 +222,17 @@ local intelretrieval = {
 	BumRushLeaveSquadsAlone = {},
 	-- these squads should be ignored as they started out near extraction
 
-	actorStateManager = nil, 
+	actorStateManager = nil,
 	actorGroupRandomiser =nil,
 }
 
 function intelretrieval:DumbTableCopy(MyTable)
 	local ReturnTable = {}
-	
+
 	for Key, TableEntry in ipairs(MyTable) do
 		table.insert(ReturnTable, TableEntry)
 	end
-	
+
 	return ReturnTable
 end
 
@@ -222,7 +250,7 @@ function intelretrieval:PreInit()
 	local CurrentGroupTotal = 0
 	local CurrentPriorityGroupSpawns = {}
 	-- this needs to be outside the loop
-	
+
 	self.SpawnPriorityGroups = {}
 
 	--gamemode.SetPlayerTeamRole(PlayerTeams.BluFor.TeamId, "Attackers")
@@ -231,7 +259,7 @@ function intelretrieval:PreInit()
 	-- Orders spawns by priority while allowing spawns of the same priority to be randomised.
 	for i, PriorityTag in ipairs(self.PriorityTags) do
 		local bFoundTag = false
-		
+
 		if CurrentPriorityGroup <= #self.SpawnPriorityGroupIDs then
 			if PriorityTag == self.SpawnPriorityGroupIDs[CurrentPriorityGroup] then
 				-- we found the priority tag corresponding to the start of the next priority group
@@ -250,7 +278,7 @@ function intelretrieval:PreInit()
 				end
 				-- Ensures we can't spawn more AI then this map can handle.
 
-				TotalSpawns = TotalSpawns + 1 
+				TotalSpawns = TotalSpawns + 1
 				table.insert(self.PriorityGroupedSpawns[PriorityIndex], SpawnPoint)
 				-- this is the table for the old method, which we may still want to use e.g. at low T counts
 
@@ -266,29 +294,29 @@ function intelretrieval:PreInit()
 			self.LastSpawnPriorityGroup = CurrentPriorityGroup
 		end
 	end
-	
+
 	self.SpawnPriorityGroups[CurrentPriorityGroup] = CurrentPriorityGroupSpawns
 	self.TotalNumberOfSpawnsFound = TotalSpawns
 
 	TotalSpawns = math.min(ai.GetMaxCount(), TotalSpawns)
 	self.Settings.AiCountMin.Max = TotalSpawns
 	self.Settings.AiCountMax.Max = TotalSpawns
-	
+
 	-- now sort extractions
-	
+
 	self.ExtractionPoints = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/GameMode/BP_ExtractionPoint.BP_ExtractionPoint_C')
 
 	for i = 1, #self.ExtractionPoints do
 		local Location = actor.GetLocation(self.ExtractionPoints[i])
 		local ExtractionMarkerName = self:GetModifierTextForObjective( self.ExtractionPoints[i] ) .. "EXTRACTION"
 		-- allow the possibility of down chevrons, up chevrons, level numbers, etc
-				
+
 		self.ExtractionPointMarkers[i] = gamemode.AddObjectiveMarker(Location, self.PlayerTeams.BluFor.TeamId, ExtractionMarkerName, "Extraction", false)
 		-- NB new penultimate parameter of MarkerType ("Extraction" or "MissionLocation", at present)
 	end
-	
+
 	-- now sort laptops
-	
+
 	self.Laptops = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/Electronics/MilitaryLaptop/BP_Laptop_Usable.BP_Laptop_Usable_C')
 	for _, laptop in ipairs(self.Laptops) do
 		self:AddToTableIfNotAlreadyPresent(
@@ -302,7 +330,7 @@ function intelretrieval:PreInit()
 
 	-- set up laptop intel rings for ops board
 	local AllInsertionPoints = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBInsertionPoint')
-	
+
 	local intelLocationInsertionPoints = filterTable(AllInsertionPoints, function(insertionPoint)
 		return actor.GetTeamId(insertionPoint) == 255
 			and actor.HasTag(insertionPoint, "Defenders")
@@ -335,7 +363,7 @@ function intelretrieval:PreInit()
 
 	--- find all nav blockers
 	self.AllNavBlocks = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/GameMode/BP_MissionNavBlock.BP_MissionNavBlock_C')
-	
+
 end
 
 
@@ -358,9 +386,9 @@ function intelretrieval:PlayerReadyStatusChanged(PlayerState, ReadyStatus)
 	if ReadyStatus ~= "DeclaredReady" then
 		timer.Set("CheckReadyDown", self, self.CheckReadyDownTimer, 0.1, false)
 	end
-	
-	if ReadyStatus == "WaitingToReadyUp" 
-	and gamemode.GetRoundStage() == "PreRoundWait" 
+
+	if ReadyStatus == "WaitingToReadyUp"
+	and gamemode.GetRoundStage() == "PreRoundWait"
 	and gamemode.PrepLatecomer(PlayerState) then
 		gamemode.EnterPlayArea(PlayerState)
 	end
@@ -370,9 +398,9 @@ end
 function intelretrieval:CheckReadyUpTimer()
 	if gamemode.GetRoundStage() == "WaitingForReady" or gamemode.GetRoundStage() == "ReadyCountdown" then
 		local ReadyPlayerTeamCounts = gamemode.GetReadyPlayerTeamCounts(true)
-	
+
 		local BluForReady = ReadyPlayerTeamCounts[self.PlayerTeams.BluFor.TeamId]
-	
+
 		if BluForReady >= gamemode.GetPlayerCount(true) then
 			gamemode.SetRoundStage("PreRoundWait")
 		elseif BluForReady > 0 then
@@ -385,7 +413,7 @@ end
 function intelretrieval:CheckReadyDownTimer()
 	if gamemode.GetRoundStage() == "ReadyCountdown" then
 		local ReadyPlayerTeamCounts = gamemode.GetReadyPlayerTeamCounts(true)
-	
+
 		if ReadyPlayerTeamCounts[self.PlayerTeams.BluFor.TeamId] < 1 then
 			gamemode.SetRoundStage("WaitingForReady")
 		end
@@ -422,17 +450,17 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 			actor.SetActive(NavBlock, true)
 		end
 		-- reset nav blocks
-	
+
 	elseif RoundStage == "PreRoundWait" then
 		-- compute actors wanted state
 		self.actorGroupRandomiser:process()
 		-- apply actors wanted state
 		self.actorStateManager:apply()
 
-		self:SpawnOpFor()				
+		self:SpawnOpFor()
 		gamemode.SetDefaultRoundStageTime("InProgress", self.Settings.RoundTime.Value)
 		-- need to update this as ops board setting may have changed - have to do this before RoundStage InProgress to be effective
-		
+
 		-- set up watch stuff
 		if self.Settings.ProximityAlert.Value == 1 and self.SelectedLaptop ~= nil then
 			--print("Setting up watch proximity alert data")
@@ -441,11 +469,11 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 			gamemode.SetCaptureZone( self.LaptopProximityAlertRadius, 0, 255, true )
 			-- cap radius, cap height, team ID, spherical zone? (ignore height)
 			local NewLaptopLocation = actor.GetLocation( self.SelectedLaptop )
-			gamemode.SetObjectiveLocation( NewLaptopLocation ) 
+			gamemode.SetObjectiveLocation( NewLaptopLocation )
 			--print("Setting objective location to (" .. NewLaptopLocation.x .. ", " .. NewLaptopLocation.y .. ", " .. NewLaptopLocation.z .. ")")
 		end
 		-- watch is set up to create a proximity alert when within <LaptopProximityAlertRadius> m of the laptop
-		
+
 	elseif RoundStage == "InProgress" then
 		-- activate the chosen extract point marker on the map if settings ask for it
 		if self.Settings.ExfilReveal.Value == ExfilReveal.OnRoundStart then
@@ -453,7 +481,7 @@ function intelretrieval:OnRoundStageSet(RoundStage)
 		end
 	--	self:ActivateBumRush()
 	-- 	-- for testing
-		
+
 	elseif RoundStage == "PostRoundWait" then
 		self.CompletedARound = true
 	end
@@ -643,7 +671,7 @@ function intelretrieval:GetInsertionPointNameForLaptop(Laptop)
 			end
 		end
 	end
-	
+
 	self:ReportError("Selected laptop did not have a tag corresponding to a defender insertion point, so no intel can be provided.")
 	return nil
 end
@@ -687,7 +715,7 @@ function intelretrieval:SpawnOpFor()
 
 	local OrderedSpawns = {}
 	local RejectedSpawns = {}
-	local Group 
+	local Group
 	local AILeftToSpawn
 
 	local ProcessAITagsOnFirstPass = {}
@@ -695,14 +723,14 @@ function intelretrieval:SpawnOpFor()
 
 	local IgnoreAITagsOnSecondPass = {}
 	-- tags to ignore on the second pass (which will include all of ProcessAITagsOnFirstPass)
-	
+
 	-- first add laptop location names to the selected/excluded tags list (ProcessAITagsOnFirstPass, IgnoreAITagsOnSecondPass)
 	if  #self.LaptopLocationNames > 0 then
 		--print("IntelRetrieval: Including AI with tag " .. self.LaptopLocationNameList[1])
 		table.insert(ProcessAITagsOnFirstPass, self.SelectedLaptopLocationName)
 		-- spawn AI if their tag matches the current/active laptop group
 		-- have to add tag to ignore list as well (for phase 2)
-		
+
 		for i = 1, #self.LaptopLocationNames do
 			--print("IntelRetrieval: Excluding AI with tag " .. self.LaptopLocationNameList[i])
 			table.insert(IgnoreAITagsOnSecondPass, self.LaptopLocationNames[i])
@@ -715,7 +743,7 @@ function intelretrieval:SpawnOpFor()
 		local ExtractionPointTags = actor.GetTags( self.ExtractionPoints[i] )
 		for _, Tag in ipairs(ExtractionPointTags) do
 			if string.lower( string.sub(Tag, 1, 7) ) == "extract" then
-			
+
 				if i == self.ExtractionPointIndex then
 					-- selected extraction point
 					--print("IntelRetrieval: Including AI with tag " .. Tag)
@@ -738,13 +766,13 @@ function intelretrieval:SpawnOpFor()
 	-- pass 2: add everything else
 
 		for CurrentPriorityGroup = 1, self.LastSpawnPriorityGroup do
-		
+
 			AILeftToSpawn =  math.max( 0, desiredAiCount - #OrderedSpawns )
 			-- this will be zero if the T count is already reached
-			
-			local CurrentAISpawnTarget 
+
+			local CurrentAISpawnTarget
 			-- number of spawns to try and add from this priority group
-			
+
 			-- determine how many spawns we're aiming for:
 			if AILeftToSpawn > 0 then
 				if CurrentPriorityGroup == 1 then
@@ -756,17 +784,17 @@ function intelretrieval:SpawnOpFor()
 						-- if the number of priority 1 spawns is lower than this number, then all priority 1 spawns will be used
 						-- (this only has an effect if there are lots of P1 spawns and not a big T count)
 					end
-					
+
 				elseif CurrentPriorityGroup == self.LastSpawnPriorityGroup then
 					CurrentAISpawnTarget = AILeftToSpawn
 					-- if this is the first group, or the last group, then try spawn all of the AI
-					
+
 				else
 					local CurrentNumberOfSpawns = #self.SpawnPriorityGroups[CurrentPriorityGroup]
 					local RemainingSpawnsInLowerPriorities = math.max( 0, self.TotalNumberOfSpawnsFound - CurrentNumberOfSpawns - #OrderedSpawns)
-					local CurrentProportionOfSpawnsLeft =  CurrentNumberOfSpawns / ( CurrentNumberOfSpawns + (RemainingSpawnsInLowerPriorities * self.ProportionOfPriorityGroupToSpawn) ) 
+					local CurrentProportionOfSpawnsLeft =  CurrentNumberOfSpawns / ( CurrentNumberOfSpawns + (RemainingSpawnsInLowerPriorities * self.ProportionOfPriorityGroupToSpawn) )
 					-- spawn a suitable number of spawns in dependence on the number of spawns in this group vs number of spawns remaining in lower groups, but fudge it to be bigger than the actual proportion
-					
+
 					CurrentAISpawnTarget = math.ceil(AILeftToSpawn * CurrentProportionOfSpawnsLeft)
 				end
 			else
@@ -776,7 +804,7 @@ function intelretrieval:SpawnOpFor()
 
 			-- now transfer the appropriate number of spawns (randomly picked) to the target list (OrderedSpawns)
 			-- and dump the remainder in the RejectedSpawns table (to be added to the end of the target list once completed)
-			
+
 			Group = self.SpawnPriorityGroups[CurrentPriorityGroup]
 
 			if Group == nil then
@@ -789,22 +817,22 @@ function intelretrieval:SpawnOpFor()
 						if SpawnOpForPass == 1 then
 							-- only shuffle once, on pass 1
 							-- this pass is to add conditional spawns for current laptop and extraction
-							
+
 							local j = umath.random(i)
 							Group[i], Group[j] = Group[j], Group[i]
-						
+
 							if self:ActorHasTagInList( Group[i], ProcessAITagsOnFirstPass ) then
 							-- add the spawns if they have the tag matching the current laptop or extraction point
-							
+
 								if CurrentAISpawnTarget > 0 then
 									table.insert(OrderedSpawns, Group[i])
 									CurrentAISpawnTarget = CurrentAISpawnTarget - 1
 								else
 									table.insert(RejectedSpawns, Group[i])
 								end
-							
+
 							end
-						
+
 						else
 						-- opfor pass 2, for anything without an insertion point tag
 
@@ -817,25 +845,25 @@ function intelretrieval:SpawnOpFor()
 								else
 									table.insert(RejectedSpawns, Group[i])
 								end
-			
+
 							end
 						end
-						
+
 					end
-						
+
 				else
 					logger:warn(sprintf("SpawnOpFor(): Priority group %s was unexpectedly empty", CurrentPriorityGroup))
 				end
-				
+
 			end
-					
+
 		end
-					
+
 	end
-	
+
 	-- now add all the rejected spawns onto the list, in case extra spawns are needed
 	-- if we ran out of spawns in the above process, this will still provide a sensible selection of spawns
-		
+
 	for i = 1, #RejectedSpawns do
 		table.insert(OrderedSpawns, RejectedSpawns[i])
 	end
@@ -846,7 +874,7 @@ function intelretrieval:SpawnOpFor()
 end
 
 
-function intelretrieval:ActorHasTagInList( CurrentActor, TagList ) 
+function intelretrieval:ActorHasTagInList( CurrentActor, TagList )
 	if CurrentActor == nil then
 		print("intelretrieval:ActorHasTagInList(): CurrentActor unexpectedly nil")
 		return false
@@ -863,7 +891,7 @@ function intelretrieval:ActorHasTagInList( CurrentActor, TagList )
 		end
 	end
 	return false
-end							
+end
 
 
 function intelretrieval:ValueIsInTable(Table, Value)
@@ -871,7 +899,7 @@ function intelretrieval:ValueIsInTable(Table, Value)
 		print("intelretrieval:ValueIsInTable(): Table unexpectedly nil")
 		return false
 	end
-	
+
 	for _, val in ipairs(Table) do
 		if Value == nil then
 			if val == nil then
@@ -891,9 +919,9 @@ function intelretrieval:OnCharacterDied(Character, CharacterController, KillerCo
 	--print("IntelRetrieval:OnCharacterDied()")
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
 		if CharacterController ~= nil then
-			if not actor.HasTag(CharacterController, self.OpForTeamTag) then
+			if not ai.IsAI(CharacterController, self.OpForTeamTag) then
 				player.SetLives(CharacterController, player.GetLives(CharacterController) - 1)
-				
+
 				local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
 				if #PlayersWithLives == 0 then
 					self:CheckBluForCountTimer()
@@ -950,7 +978,7 @@ end
 function intelretrieval:CheckOpForExfilTimer()
 	local Overlaps = actor.GetOverlaps(self.ExtractionPoints[self.ExtractionPointIndex], 'GroundBranch.GBCharacter')
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
-	
+
 	local bExfiltrated = false
 	local bLivingOverlap = false
 	local bLaptopSecure = false
@@ -960,7 +988,7 @@ function intelretrieval:CheckOpForExfilTimer()
 		bExfiltrated = false
 
 		local PlayerCharacter = player.GetCharacter(PlayersWithLives[i])
-	
+
 		-- May have lives, but no character, alive or otherwise.
 		if PlayerCharacter ~= nil then
 			for j = 1, #Overlaps do
@@ -980,10 +1008,10 @@ function intelretrieval:CheckOpForExfilTimer()
 			break
 		end
 	end
-	
+
 	if bLaptopSecure then
 		if bExfiltrated then
-		 	timer.Clear(self, "CheckOpForExfil")
+		 	timer.Clear("CheckOpForExfil")
 		 	gamemode.AddGameStat("Result=Team1")
 		 	gamemode.AddGameStat("Summary=IntelRetrieved")
 			gamemode.AddGameStat("CompleteObjectives=RetrieveIntel,ExfiltrateBluFor")
@@ -1012,11 +1040,11 @@ function intelretrieval:OnTargetCaptured()
 end
 
 function intelretrieval:OnLaptopPickedUp()
-	-- laptop has been picked up, so disable proximity alert 
+	-- laptop has been picked up, so disable proximity alert
 	--print("OnLaptopPickedUp() called")
-	
+
 	if self.Settings.ProximityAlert.Value == 1  then
-		gamemode.SetObjectiveLocation( nil ) 
+		gamemode.SetObjectiveLocation( nil )
 	end
 end
 
@@ -1024,18 +1052,18 @@ end
 function intelretrieval:OnLaptopPlaced(NewLaptop)
 	-- called when the laptop is dropped or replaced (e.g. carrier is killed)
 	-- want to start the proximity alert again at its location
-	
+
 	-- (this is redundant the first time the laptop is captured)
-	
+
 	--print("OnLaptopPlaced() called")
 
 	return
 	-- this isn't working so let's just turn it off for now
-	
+
 	--if self.Settings.ProximityAlert.Value == 1 and NewLaptop ~= nil then
 	--	local NewLaptopLocation = actor.GetLocation( NewLaptop )
 	--	if NewLaptopLocation ~= nil then
-	--		gamemode.SetObjectiveLocation( NewLaptopLocation ) 
+	--		gamemode.SetObjectiveLocation( NewLaptopLocation )
 	--		print("Resetting objective location to (" .. NewLaptopLocation.x .. ", " .. NewLaptopLocation.y .. ", " .. NewLaptopLocation.z .. ")")
 	--	end
 	--end
@@ -1055,15 +1083,15 @@ function intelretrieval:GetNumberOfSearchLocations()
 	if displaySearchLocations <= 2 then
 		return math.min(#self.LaptopLocationNames, displaySearchLocations)
 	end
-	
+
 	if displaySearchLocations == 3 then
 		return math.floor(#self.LaptopLocationNames / 2)
 	end
-	
+
 	if displaySearchLocations == 4 then
 		return #self.LaptopLocationNames - 1
 	end
-	
+
 	return #self.LaptopLocationNames
 end
 
@@ -1077,6 +1105,32 @@ function intelretrieval:OnMissionSettingsChanged(ChangedSettingsTable)
 	end
 end
 
+function intelretrieval:OnRandomiseObjectives()
+	-- new in 1034 - new randomise objective button is clicked, so re-roll search locations and so on
+	self:RandomiseObjectives()
+end
+
+function intelretrieval:CanRandomiseObjectives()
+	-- prevent randomisation when all these conditions are met:
+	if
+		-- there's only one extraction point available
+		#self.ExtractionPoints == 1
+		-- all search locations are displayed
+		and self:GetNumberOfSearchLocations() == #self.LaptopLocationNameList
+		-- all laptops are enabled
+		and self.Settings.LaptopCountMin.Value == self.Settings.LaptopCountMax.Value
+		and self.Settings.LaptopCountMin.Value == #self.Laptops
+		-- all insertion points are enabled
+		and self.Settings.InsertCountMin.Value == self.Settings.InsertCountMax.Value
+		and self.Settings.InsertCountMin.Value == #self.AttackersInsertionPoints
+	then
+		return false
+	end
+
+	-- in all other case we have something to randomise
+	return true
+end
+
 
 function intelretrieval:LogOut(Exiting)
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
@@ -1087,41 +1141,41 @@ end
 
 function intelretrieval:GetModifierTextForObjective( TaggedActor )
 	-- consider moving to gamemode
-			
+
 	if actor.HasTag( TaggedActor, "AddUpArrow") then
-		return "(U)" 
+		return "(U)"
 	elseif actor.HasTag( TaggedActor, "AddDownArrow") then
-		return "(D)" 
+		return "(D)"
 	elseif actor.HasTag( TaggedActor, "AddUpStaircase") then
-		return "(u)" 
+		return "(u)"
 	elseif actor.HasTag( TaggedActor, "AddDownStaircase") then
 		return "(d)"
 	elseif actor.HasTag( TaggedActor, "Add1") then
-		return "(1)" 
+		return "(1)"
 	elseif actor.HasTag( TaggedActor, "Add2") then
-		return "(2)" 
+		return "(2)"
 	elseif actor.HasTag( TaggedActor, "Add3") then
 		return "(3)"
 	elseif actor.HasTag( TaggedActor, "Add4") then
-		return "(4)" 
+		return "(4)"
 	elseif actor.HasTag( TaggedActor, "Add5") then
-		return "(5)" 
+		return "(5)"
 	elseif actor.HasTag( TaggedActor, "Add6") then
-		return "(6)" 
+		return "(6)"
 	elseif actor.HasTag( TaggedActor, "Add7") then
-		return "(7)" 
+		return "(7)"
 	elseif actor.HasTag( TaggedActor, "Add8") then
-		return "(8)" 
+		return "(8)"
 	elseif actor.HasTag( TaggedActor, "Add9") then
-		return "(9)" 
+		return "(9)"
 	elseif actor.HasTag( TaggedActor, "Add0") then
-		return "(0)" 
+		return "(0)"
 	elseif actor.HasTag( TaggedActor, "Add-1") then
 		return "(-)"
 	elseif actor.HasTag( TaggedActor, "Add-2") then
 		return "(=)"
 	end
-		
+
 	return ""
 end
 
@@ -1137,7 +1191,7 @@ function intelretrieval:StripNumbersFromName(ObjectName)
 	while string.len(ObjectName)>1 and ((string.sub(ObjectName, -1, -1)>='0' and string.sub(ObjectName, -1, -1)<='9') or string.sub(ObjectName, -1, -1)=='_') do
 		ObjectName = string.sub(ObjectName, 1, -2)
 	end
-	
+
 	return ObjectName
 end
 
@@ -1148,7 +1202,7 @@ function intelretrieval:ActivateBumRush()
 		self.BumRushModeActive = true
 		--print("Activated bum rush mode")
 		gamemode.BroadcastGameMessage("BumRushActivated", "Upper", 5.0)
-		
+
 		for _, NavBlock in ipairs(self.AllNavBlocks) do
 			if not actor.HasTag(NavBlock, "DoNotDisable") then
 				actor.SetActive(NavBlock, false)
@@ -1157,14 +1211,15 @@ function intelretrieval:ActivateBumRush()
 		-- turn off all nav blocks on the map, to free all the AI, will take a short while to propagate - might need to delay first bumrush call?
 
 		-- filter out squads which are close enough to extraction:
-		
+
 		self.BumRushLeaveSquadsAlone = {}
-		
+
 		local ExtractionPointLocation = actor.GetLocation( self.ExtractionPoints[self.ExtractionPointIndex] )
-		local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
-		
+		local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+		-- v1034: class type of nil now uses default controller type (kythera now)
+
 		for _, AIController in ipairs(OpForControllers) do
-		
+
 			local AISquadID = ai.GetSquadId(AIController)
 			local AICharacter = player.GetCharacter(AIController)
 			local AILocation = actor.GetLocation(AICharacter)
@@ -1177,7 +1232,7 @@ function intelretrieval:ActivateBumRush()
 			-- overkill as it will do this multiple times per squad, but let's keep it simple
 			-- get this done first so that AI will immediately accept search destination
 		end
-		
+
 		timer.Set("UpdateBumRushTargets", self, self.UpdateBumRushTargetsTimer, self.BumRushTargetUpdateTime, true)
 		self:UpdateBumRushTargetsTimer()
 		-- set timer and call function immediately to set targets for bum rushing AI
@@ -1186,32 +1241,34 @@ end
 
 
 function intelretrieval:UpdateBumRushTargetsTimer()
-	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
+	local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+	-- v1034: class type of nil now uses default controller type (kythera now)
+
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
 	local ExtractionPointLocation = actor.GetLocation( self.ExtractionPoints[self.ExtractionPointIndex] )
-	
+
 	if OpForControllers == nil or #OpForControllers == 0 or PlayersWithLives == nil or #PlayersWithLives == 0 or ExtractionPointLocation == nil then
 		return
 	end
-	
+
 	if gamemode.GetRoundStage() ~= 'InProgress' then
-		timer.Clear(self, "UpdateBumRushTargets")
+		timer.Clear("UpdateBumRushTargets")
 		return
 	end
-	
+
 	local TempExtractionPointLocation = ai.ProjectPointToNavigation(ExtractionPointLocation, { x=500.0, y=500.0, z=1000.0 } )
 	if TempExtractionPointLocation ~= nil then
-		print("Old extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
+		-- print("Old extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
 		ExtractionPointLocation = TempExtractionPointLocation
-		print("Next extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
+		-- print("Next extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
 	else
 		print("Could not project extraction zone to navmesh")
 	end
 	-- most extraction zones are volumes with a centre that might be floating high above the ground, so we need to project to navmesh
 	-- some of these zones are off the navmesh (e.g. Small Town SW extract), so bum rush to them might not work so well
-	
+
 	local AISquadList = {}
-	
+
 	for _, AIController in ipairs(OpForControllers) do
 		local AISquadID = ai.GetSquadId(AIController)
 		if AISquadID ~= nil then
@@ -1221,18 +1278,18 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 			table.insert( AISquadList[AISquadID], AIController )
 		end
 	end
-	
+
 	-- AISquadList now contains tables of AI controllers (ordered by SquadID) that are alive in a particular squad
-		
+
 	-- remove squads that were deemed close enough to extraction:
 	for AISquadID, _ in pairs(self.BumRushLeaveSquadsAlone) do
 		AISquadList[AISquadID] = nil
 		-- remove controllers for that squad
-		print("Removed all controllers for squad " .. AISquadID .. " because they were close enough to extraction")
+		print("Removed controllers for squad " .. AISquadID .. " from orders list because they were close enough to extraction")
 	end
 
 	-- now activate bum rush mode
-		
+
 	for AISquadID, AIControllerList in pairs(AISquadList) do
 		local TargetLocation
 		if math.random(2) == 1 then
@@ -1258,7 +1315,7 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 					print("SearchTargetLocation was not valid - using player position")
 					SearchTargetLocation = TargetLocation
 				end
-				
+
 				ai.SetSearchTarget(AIController, SearchTargetLocation, self.BumRushTargetUpdateTime)
 				-- make AI go to that player's last known location (i.e. current location)
 				-- last parameter is search time duration (seconds)
