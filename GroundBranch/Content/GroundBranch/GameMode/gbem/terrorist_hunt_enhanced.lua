@@ -7,12 +7,32 @@ local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
 
 local terroristhunt = {
-	UseReadyRoom = true,
-	UseRounds = true,
 	StringTables = { "gbem/terrorist_hunt_enhanced" },
 
-	GameModeAuthor = "(c) BlackFoot Studios, 2021-2022, (c) Ninjamamia, 2023",
+	GameModeAuthor = "(c) BlackFoot Studios, 2021-2023, (c) Ninjamamia, 2023-2024",
 	GameModeType = "PVE",
+
+	---------------------------------------------
+	----- Game Mode Properties ------------------
+	---------------------------------------------
+
+	UseReadyRoom = true,
+	UseRounds = true,
+	VolunteersAllowed = false,
+
+	---------------------------------------------
+	----- Default Game Rules --------------------
+	---------------------------------------------
+
+		AllowUnrestrictedRadio = true,
+	AllowUnrestrictedVoice = true,
+	SpectateForceFirstPerson = false,
+	SpectateFreeCam = true,
+	SpectateEnemies = false,
+
+	---------------------------------------------
+	------- Player Teams ------------------------
+	---------------------------------------------
 
 	PlayerTeams = {
 		BluFor = {
@@ -20,6 +40,10 @@ local terroristhunt = {
 			Loadout = "NoTeam",
 		},
 	},
+
+	---------------------------------------------
+	---- Mission Settings -----------------------
+	---------------------------------------------
 
 	Settings = {
 		AiCountMin = {
@@ -80,7 +104,11 @@ local terroristhunt = {
 			AdvancedSetting = true,
 		},
 	},
-	
+
+	---------------------------------------------
+	---- 'Global' Variables ---------------------
+	---------------------------------------------
+
 	OpForTeamTag = "OpFor",
 	PriorityTags = { "AISpawn_1", "AISpawn_2", "AISpawn_3", "AISpawn_4", "AISpawn_5",
 		"AISpawn_6_10", "AISpawn_11_20", "AISpawn_21_30", "AISpawn_31_40", "AISpawn_41_50" },
@@ -93,13 +121,13 @@ local terroristhunt = {
 
 	SpawnPriorityGroups = {},
 	-- this stores the actual groups as separate tables of spawns indexed by priority group
-	
+
 	LastSpawnPriorityGroup = 0,
 	-- the last priority group in which spawns were found
-	
+
 	ProportionOfPriorityGroupToSpawn = 0.7,
-	-- after processing all group 1 spawns, a total of N spawns remain. Spawn 70% of those as group 2 , then 70% of the remaining number as group 3, ... (or 100% if no more groups exist) 
-	
+	-- after processing all group 1 spawns, a total of N spawns remain. Spawn 70% of those as group 2 , then 70% of the remaining number as group 3, ... (or 100% if no more groups exist)
+
 	AllAIHotspots = {},
 	-- list of AI hotspot volume actors found in the map
 	AIHotspotSpawnpoints = {},
@@ -109,55 +137,54 @@ local terroristhunt = {
 	CurrentAIHotspot = nil,
 
 	CompletedARound = true,
-	
+
 	AllNavBlocks = {},
 	-- nav blockers, which we need to turn off when activating bum rush
-	
+
 	HotspotMarkerMap = {},
 	-- key is hotspot name, value is hotspot objective marker
-	
+
 	TotalNumberOfSpawnsFound = 0,
 	-- simple total of spawns placed in all priority groups
-		
+
 	AlwaysUseEveryPriorityOneSpawn = false,
 	-- if true, priority one spawns will be used up entirely before considering lower priorities
 	-- if false, behaviour differs depending on T count and number of P1 spawns. At least N% of spawns will be not P1 spawns, preventing all P1 spawns being used if need be
 	MinimumProportionOfNonPriorityOneSpawns = 0.15,
 	-- in which case, always use this proportion of non P1 spawns (15% by default), rounded down
-		
+
 	PriorityGroupedSpawns = {},
 	-- used for old AI spawn method
-	
+
 	BumRushModeActive = false,
 	-- if true, AI will be heading towards last known location of a random player
 
 	BumRushTargetUpdateTime = 8.0,
 	-- seconds between target updates for last few AI in bum rush mode
-	
+
 	BumRushTargetAICount = 0,
 	-- this is set at the start of each round when the number of active AI is known
-	
+
 	BumRushRandomWalkLength = 1000.0,
 	-- length of random walk to take from player's actual position (in cm), so AI aren't super precise and don't cluster round a single point
-	
+
 	PlayerCapsuleHalfHeight = 100,
 	PlayerCapsuleRadius = 40,
 	-- size for collision checking
 
 	AttackersInsertionPoints = {},
 
-	actorStateManager = nil, 
+	actorStateManager = nil,
 	actorGroupRandomiser =nil,
 }
 
-
 function terroristhunt:DumbTableCopy(MyTable)
 	local ReturnTable = {}
-	
+
 	for Key, TableEntry in ipairs(MyTable) do
 		table.insert(ReturnTable, TableEntry)
 	end
-	
+
 	return ReturnTable
 end
 
@@ -175,9 +202,9 @@ function terroristhunt:PreInit()
 	local CurrentGroupTotal = 0
 	local CurrentPriorityGroupSpawns = {}
 	-- this needs to be outside the loop
-	
+
 	self.SpawnPriorityGroups = {}
-	
+
 	-- Orders spawns by priority while allowing spawns of the same priority to be randomised.
 	for i, PriorityTag in ipairs(self.PriorityTags) do
 		local bFoundTag = false
@@ -200,7 +227,7 @@ function terroristhunt:PreInit()
 					self.PriorityGroupedSpawns[PriorityIndex] = {}
 				end
 				-- Ensures we can't spawn more AI then this map can handle.
-				TotalSpawns = TotalSpawns + 1 
+				TotalSpawns = TotalSpawns + 1
 				table.insert(self.PriorityGroupedSpawns[PriorityIndex], SpawnPoint)
 				-- this is the table for the old method, which we may still want to use e.g. at low T counts
 
@@ -216,7 +243,7 @@ function terroristhunt:PreInit()
 			self.LastSpawnPriorityGroup = CurrentPriorityGroup
 		end
 	end
-	
+
 	self.SpawnPriorityGroups[CurrentPriorityGroup] = CurrentPriorityGroupSpawns
 	print("PreInit(): " .. CurrentGroupTotal .. " total spawns found for priority group " .. CurrentPriorityGroup )
 
@@ -242,13 +269,13 @@ function terroristhunt:PreInit()
 
 	---------------------------------
 	-- set up hotspots (new in 1033):
-	
+
 	self.AllAIHotspots = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAIHotspot')
 	-- list of AI hotspot volume actors found in the map
-	
+
 	self.AIHotspotSpawnpoints = {}
 	self.HotspotMarkerMap = {}
-	
+
 	for _, Hotspot in ipairs(self.AllAIHotspots) do
 		local HotspotName = ai.GetAIHotspotName(Hotspot)
 		if HotspotName ~= nil and HotspotName ~= "" then
@@ -264,12 +291,12 @@ function terroristhunt:PreInit()
 
 			self.AIHotspotSpawnpoints[HotspotName] = SpawnpointList
 			-- store spawnpoint list for hotspot
-			
+
 			local NewObjectiveMarker = gamemode.AddObjectiveMarker(actor.GetLocation(Hotspot), self.PlayerTeams.BluFor.TeamId, HotspotName, "Hotspot", false)
-			
+
 			self.HotspotMarkerMap[HotspotName] = NewObjectiveMarker
 			-- create location marker for hotspot (for ops board map). Last parameter is whether set active or not. Location is centre of hotspot, but not really used.
-			
+
 			if NewObjectiveMarker == nil then
 				print("Failed to create objective marker")
 			end
@@ -277,11 +304,11 @@ function terroristhunt:PreInit()
 			print("Error: hotspot name was nil/empty")
 		end
 	end
-	
-	
+
+
 	--- find all nav blockers
 	self.AllNavBlocks = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/GameMode/BP_MissionNavBlock.BP_MissionNavBlock_C')
-	
+
 end
 
 
@@ -303,9 +330,9 @@ function terroristhunt:PlayerReadyStatusChanged(PlayerState, ReadyStatus)
 	if ReadyStatus ~= "DeclaredReady" then
 		timer.Set("CheckReadyDown", self, self.CheckReadyDownTimer, 0.1, false)
 	end
-	
-	if ReadyStatus == "WaitingToReadyUp" 
-	and gamemode.GetRoundStage() == "PreRoundWait" 
+
+	if ReadyStatus == "WaitingToReadyUp"
+	and gamemode.GetRoundStage() == "PreRoundWait"
 	and gamemode.PrepLatecomer(PlayerState) then
 		gamemode.EnterPlayArea(PlayerState)
 	end
@@ -315,9 +342,9 @@ end
 function terroristhunt:CheckReadyUpTimer()
 	if gamemode.GetRoundStage() == "WaitingForReady" or gamemode.GetRoundStage() == "ReadyCountdown" then
 		local ReadyPlayerTeamCounts = gamemode.GetReadyPlayerTeamCounts(true)
-	
+
 		local BluForReady = ReadyPlayerTeamCounts[self.PlayerTeams.BluFor.TeamId]
-	
+
 		if BluForReady >= gamemode.GetPlayerCount(true) then
 			gamemode.SetRoundStage("PreRoundWait")
 		elseif BluForReady > 0 then
@@ -330,7 +357,7 @@ end
 function terroristhunt:CheckReadyDownTimer()
 	if gamemode.GetRoundStage() == "ReadyCountdown" then
 		local ReadyPlayerTeamCounts = gamemode.GetReadyPlayerTeamCounts(true)
-	
+
 		if ReadyPlayerTeamCounts[self.PlayerTeams.BluFor.TeamId] < 1 then
 			gamemode.SetRoundStage("WaitingForReady")
 		end
@@ -422,31 +449,31 @@ end
 
 function terroristhunt:PickHotspot()
 	-- pick a hotspot, if present - new in 1033:
-	
+
 	gamemode.ClearSearchLocations()
-	
+
 	if #self.AllAIHotspots > 0 and self.Settings.UseAIHotspots.Value == 1 then
 		-- first, pick an active hotspot and set active states accordingly:
 		self.CurrentAIHotspot = self.AllAIHotspots[math.random(#self.AllAIHotspots)]
-		
+
 		local CurrentHotspotName = ai.GetAIHotspotName( self.CurrentAIHotspot )
 		local CurrentHotspotSpawns = self.AIHotspotSpawnpoints[CurrentHotspotName]
 		print ("Picked hotspot " .. CurrentHotspotName .. " with " .. #CurrentHotspotSpawns .. " spawns.")
-		
+
 		gamemode.AddSearchLocation(self.PlayerTeams.BluFor.TeamId, CurrentHotspotName, 2)
 		-- add secondary search location
 		-- TODO: change name of 'search location' to 'hot spot' or similar
 	else
 		self.CurrentAIHotspot = nil
 	end
-	
+
 	-- need to deactivate all objective markers and hotspots, whether or not AI hotspots are enabled as an option:
-	
-	if #self.AllAIHotspots > 0 then		
+
+	if #self.AllAIHotspots > 0 then
 		for _, Hotspot in ipairs(self.AllAIHotspots) do
 			local TempHotspotName = ai.GetAIHotspotName(Hotspot)
 			local TempObjectiveMarker = self.HotspotMarkerMap[TempHotspotName]
-			
+
 			if self.CurrentAIHotspot ~= nil and Hotspot == self.CurrentAIHotspot then
 				actor.SetActive(Hotspot, true)
 				actor.SetActive(TempObjectiveMarker, true)
@@ -476,7 +503,7 @@ function terroristhunt:SpawnOpFor()
 
 	local OrderedSpawns = {}
 	local RejectedSpawns = {}
-	local Group 
+	local Group
 	local AILeftToSpawn
 
 	local AllocatedSpawnMap = {}
@@ -484,25 +511,25 @@ function terroristhunt:SpawnOpFor()
 
 
 	-- allocate AI to hotspots, new in 1033:
-		
+
 	if self.CurrentAIHotspot ~= nil then
-	
+
 		local CurrentHotspotName = ai.GetAIHotspotName( self.CurrentAIHotspot )
 		local CurrentHotspotSpawns = self.AIHotspotSpawnpoints[CurrentHotspotName]
-		
+
 		if #CurrentHotspotSpawns > 0 then
 			-- determine what % of the total to allocate to the hotspot
 			local HotspotNumberAvailableToSpawn = math.floor(math.max( 1, desiredAiCount * self.AIHotspotPercentageOfTotalSpawns ))
 			local HotspotNumberToSpawn = math.min( HotspotNumberAvailableToSpawn, #CurrentHotspotSpawns )
 
 			print("Allocating " .. HotspotNumberToSpawn .. " spawns out of total " .. desiredAiCount .. " available to hotspot " .. CurrentHotspotName)
-			
+
 			if HotspotNumberToSpawn > 0 then
 				for i = #CurrentHotspotSpawns, #CurrentHotspotSpawns - (HotspotNumberToSpawn-1), -1 do
 					local j = umath.random(i)
 					CurrentHotspotSpawns[i], CurrentHotspotSpawns[j] = CurrentHotspotSpawns[j], CurrentHotspotSpawns[i]
 					-- shuffle
-					
+
 					local SpawnName = actor.GetName(CurrentHotspotSpawns[i])
 					table.insert(OrderedSpawns, CurrentHotspotSpawns[i])
 					AllocatedSpawnMap[ SpawnName ] = true
@@ -513,13 +540,13 @@ function terroristhunt:SpawnOpFor()
 
 
 	for CurrentPriorityGroup = 1, self.LastSpawnPriorityGroup do
-						
+
 		AILeftToSpawn =  math.max( 0, desiredAiCount - #OrderedSpawns )
 		-- this will be zero if the T count is already reached
-		
-		local CurrentAISpawnTarget 
+
+		local CurrentAISpawnTarget
 		-- number of spawns to try and add from this priority group
-		
+
 		-- determine how many spawns we're aiming for:
 		if AILeftToSpawn > 0 then
 			if CurrentPriorityGroup == 1 then
@@ -531,19 +558,19 @@ function terroristhunt:SpawnOpFor()
 					-- if the number of priority 1 spawns is lower than this number, then all priority 1 spawns will be used
 					-- (this only has an effect if there are lots of P1 spawns and not a big T count)
 				end
-				
+
 			elseif CurrentPriorityGroup == self.LastSpawnPriorityGroup then
 				CurrentAISpawnTarget = AILeftToSpawn
 				-- if this is the first group, or the last group, then try spawn all of the AI
-				
+
 			else
 				local CurrentNumberOfSpawns = #self.SpawnPriorityGroups[CurrentPriorityGroup]
 				local RemainingSpawnsInLowerPriorities = math.max( 0, self.TotalNumberOfSpawnsFound - CurrentNumberOfSpawns - #OrderedSpawns)
-				local CurrentProportionOfSpawnsLeft =  CurrentNumberOfSpawns / ( CurrentNumberOfSpawns + (RemainingSpawnsInLowerPriorities * self.ProportionOfPriorityGroupToSpawn) ) 
+				local CurrentProportionOfSpawnsLeft =  CurrentNumberOfSpawns / ( CurrentNumberOfSpawns + (RemainingSpawnsInLowerPriorities * self.ProportionOfPriorityGroupToSpawn) )
 				-- spawn a suitable number of spawns in dependence on the number of spawns in this group vs number of spawns remaining in lower groups, but fudge it to be bigger than the actual proportion
-				
+
 				CurrentAISpawnTarget = math.ceil(AILeftToSpawn * CurrentProportionOfSpawnsLeft)
-				
+
 				-- starting with 70%, so if 10 AI are left to spawn, we will attempt to spawn 7 of them from this group
 			end
 		else
@@ -555,21 +582,21 @@ function terroristhunt:SpawnOpFor()
 
 		-- now transfer the appropriate number of spawns (randomly picked) to the target list (OrderedSpawns)
 		-- and dump the remainder in the RejectedSpawns table (to be added to the end of the target list once completed)
-		
+
 		Group = self.SpawnPriorityGroups[CurrentPriorityGroup]
 
 		if Group == nil then
 			print("SpawnOpFor(): Table entry for priority group " .. CurrentPriorityGroup.. " was unexpectedly nil")
 		else
 			print("SpawnOpFor(): actually found " .. #Group .. " AI in group " .. CurrentPriorityGroup)
-		
+
 			if #Group > 0 then
 				for i = #Group, 1, -1 do
 					local j = umath.random(i)
 					Group[i], Group[j] = Group[j], Group[i]
 
 					local SpawnName = actor.GetName(Group[i])
-					if CurrentAISpawnTarget > 0 and AllocatedSpawnMap[SpawnName] == nil then
+					if SpawnName ~= nil and CurrentAISpawnTarget > 0 and AllocatedSpawnMap[SpawnName] == nil then
 						table.insert(OrderedSpawns, Group[i])
 						AllocatedSpawnMap[SpawnName] = true
 						CurrentAISpawnTarget = CurrentAISpawnTarget - 1
@@ -578,30 +605,30 @@ function terroristhunt:SpawnOpFor()
 					end
 				end
 				-- ^ shuffle this group to randomise
-					
+
 			else
 				logger:warn(sprintf("SpawnOpFor(): Priority group %s was unexpectedly empty", CurrentPriorityGroup))
 			end
-			
+
 		end
-		
+
 	end
-	
+
 	-- now add all the rejected spawns onto the list, in case extra spawns are needed
 	-- if we ran out of spawns in the above process, this will still provide a sensible selection of spawns
-	
+
 	for i = 1, #RejectedSpawns do
 		table.insert(OrderedSpawns, RejectedSpawns[i])
 	end
 
 	ai.CreateOverDuration(4.0, desiredAiCount, OrderedSpawns, self.OpForTeamTag)
 	logger:info(sprintf('-> Spawned %s enemies', desiredAiCount))
-	
+
 	-- now set bum rush count, new in 1033:
-	
+
 	local BumRushCountMax = math.floor(math.max( 3, (desiredAiCount / 8) ))
 	-- math.floor() to force to integer
-			
+
 	self.BumRushTargetAICount = math.random( 2, BumRushCountMax )
 	logger:debug(sprintf('BumRushTargetAICount = %s (max=%s)', self.BumRushTargetAICount, BumRushCountMax))
 	-- set threshold for activating AI bum rush
@@ -611,11 +638,11 @@ end
 function terroristhunt:OnCharacterDied(Character, CharacterController, KillerController)
 	if gamemode.GetRoundStage() == "PreRoundWait" or gamemode.GetRoundStage() == "InProgress" then
 		if CharacterController ~= nil then
-			if actor.HasTag(CharacterController, self.OpForTeamTag) then
+			if ai.IsAI(CharacterController, self.OpForTeamTag) then
 				timer.Set("CheckOpForCount", self, self.CheckOpForCountTimer, 1.0, false)
 			else
 				player.SetLives(CharacterController, player.GetLives(CharacterController) - 1)
-								
+
 				local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
 				if #PlayersWithLives == 0 then
 					self:CheckBluForCountTimer()
@@ -623,7 +650,7 @@ function terroristhunt:OnCharacterDied(Character, CharacterController, KillerCon
 				else
 					timer.Set("CheckBluForCount", self, self.CheckBluForCountTimer, 1.0, false)
 				end
-				
+
 			end
 		end
 	end
@@ -631,7 +658,8 @@ end
 
 
 function terroristhunt:CheckOpForCountTimer()
-	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
+	local OpForControllers = ai.GetControllers(nil, self.OpForTeamTag, 255, 255)
+	-- new in v1034 - use nil for default AI controller class, currently tags aren't working but are ignored
 
 	if #OpForControllers == 0 then
 		timer.Clear("ShowRemaining")
@@ -643,7 +671,7 @@ function terroristhunt:CheckOpForCountTimer()
 	elseif self.Settings.ShowRemaining.Value > 0 and #OpForControllers <= self.Settings.ShowRemaining.Value then
 		-- we now delegate formatting to the UE4 FText format command, also allowing us to localise it via the .csv file
 		-- we do this using a table, because lua
-		
+
 		local FormatTable = {}
 		FormatTable.FormatString = "RemainingOpfor"
 		-- "FormatString" is a reserved and mandatory field name
@@ -651,13 +679,13 @@ function terroristhunt:CheckOpForCountTimer()
 		FormatTable.NumberRemaining = #OpForControllers
 		-- important not to convert #OpForControllers to string so that it can be used by the plural() formatting function
 		self.RemainingMessage = gamemode.FormatString(FormatTable)
-		
+
 		timer.Set("ShowRemaining", self, self.ShowRemainingTimer, 10, false)
 	end
-	
+
 	--if self.Settings.BumRushMode.Value == 1 and #OpForControllers <= self.BumRushTargetAICount then
 	-- hide bum rush setting -> add to the mystique of the AI
-	
+
 	if #OpForControllers <= self.BumRushTargetAICount then
 		self:ActivateBumRush()
 	end
@@ -668,14 +696,14 @@ function terroristhunt:ActivateBumRush()
 	if not self.BumRushModeActive then
 		self.BumRushModeActive = true
 		print("Activated bum rush mode")
-		
+
 		for _, NavBlock in ipairs(self.AllNavBlocks) do
 			if not actor.HasTag(NavBlock, "DoNotDisable") then
 				actor.SetActive(NavBlock, false)
 			end
 		end
 		-- turn off all nav blocks on the map, to free all the AI, will take a short while to propagate - might need to delay first bumrush call?
-		
+
 		timer.Set("UpdateBumRushTargets", self, self.UpdateBumRushTargetsTimer, self.BumRushTargetUpdateTime, true)
 		self:UpdateBumRushTargetsTimer()
 		-- set timer and call function immediately to set targets for bum rushing AI
@@ -686,21 +714,21 @@ end
 function terroristhunt:UpdateBumRushTargetsTimer()
 	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
-	
+
 	if OpForControllers == nil or #OpForControllers == 0 or PlayersWithLives == nil or #PlayersWithLives == 0 then
 		return
 	end
-	
+
 	if gamemode.GetRoundStage() ~= 'InProgress' then
-		timer.Clear(self, "UpdateBumRushTargets")
+		timer.Clear("UpdateBumRushTargets")
 		return
 	end
-	
+
 	for _, AIController in ipairs(OpForControllers) do
 		local RandomPlayer = PlayersWithLives[math.random(#PlayersWithLives)]
 		local PlayerCharacter = player.GetCharacter(RandomPlayer)
 		local PlayerLocation = actor.GetLocation(PlayerCharacter)
-		
+
 		if PlayerCharacter ~= nil then
 			ai.SetSquadOrdersForAIController(AIController, 'Search')
 			-- override any current squad orders (e.g. guard, patrol, idle)
@@ -714,7 +742,7 @@ function terroristhunt:UpdateBumRushTargetsTimer()
 				print("SearchTargetLocation was not valid - using player position")
 				SearchTargetLocation = PlayerLocation
 			end
-			
+
 			--print("TerroristHunt: bumrush setting search target to " .. SearchTargetLocation.x .. ", " ..  SearchTargetLocation.y .. ", " ..  SearchTargetLocation.z  )
 			ai.SetSearchTarget(AIController, SearchTargetLocation, self.BumRushTargetUpdateTime)
 			-- make AI go to that player's last known location (i.e. current location)
@@ -760,6 +788,7 @@ end
 function terroristhunt:OnMissionSettingsChanged(ChangedSettingsTable)
 	-- NB this may be called before some things are initialised
 	-- need to avoid infinite loops by setting new mission settings
+
     if ChangedSettingsTable['UseAIHotspots'] ~= nil then
         print("OnMissionSettingsChanged(): UseAIHotspots value changed.")
 		self:PickHotspot()
@@ -769,6 +798,33 @@ function terroristhunt:OnMissionSettingsChanged(ChangedSettingsTable)
        ChangedSettingsTable['InsertCountMin'] ~= nil then
 		self:RandomiseInsertLocation()
 	end
+end
+
+function terroristhunt:RandomiseObjectives()
+		self:PickHotspot()
+		self:RandomiseInsertLocation()
+end
+
+
+function terroristhunt:OnRandomiseObjectives()
+	-- new in 1034 - new randomise objective button is clicked, so re-roll search locations and so on
+	self:RandomiseObjectives()
+end
+
+function terroristhunt:CanRandomiseObjectives()
+	-- prevent randomisation when all these conditions are met:
+	if
+		-- not using hotspots, or there's only one hotspot available
+		(self.Settings.UseAIHotspots.Value == 0 or self.AllAIHotspots == 1)
+		-- all insertion points are enabled
+		and self.Settings.InsertCountMin.Value == self.Settings.InsertCountMax.Value
+		and self.Settings.InsertCountMin.Value == #self.AttackersInsertionPoints
+	then
+		return false
+	end
+
+	-- in all other case we have something to randomise
+	return true
 end
 
 
