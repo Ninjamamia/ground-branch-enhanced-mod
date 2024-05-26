@@ -539,11 +539,11 @@ function defuse:ExplodeBombs(BombActor)
 
 	-- blow up all players (ish)
 
-	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
-	for _, Player in ipairs(PlayersWithLives) do
-		player.SpawnEffectAtPlayer(Player, '/Game/GroundBranch/Inventory/Grenade/Explosions/BP_Explosion_StunLocal.BP_Explosion_StunLocal_C')
-		--player.Kill(Player)
-	end
+	-- removed, as now done in the bomb BP (as of 1034.3)
+	--local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
+	--for _, Player in ipairs(PlayersWithLives) do
+	--	player.SpawnEffectAtPlayer(Player, '/Game/GroundBranch/Inventory/Grenade/Explosions/BP_Explosion_StunLocal.BP_Explosion_StunLocal_C')
+	--end
 	
 	-- blow up AI (ish)
 	
