@@ -1,11 +1,17 @@
 local deathmatchvalidate = {
 	}
 	
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
 
 function deathmatchvalidate:ValidateLevel()
 	-- new feature to help mission editor validate levels
 
 	local ErrorsFound = {}
+	
+	----- carry out generic validation functions using new function library
+	ErrorsFound = validationfunctions:PerformGenericValidations()
 	
 	-- first deal with player starts
 	

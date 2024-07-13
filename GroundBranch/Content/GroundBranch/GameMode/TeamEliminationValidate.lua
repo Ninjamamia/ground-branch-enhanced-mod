@@ -1,11 +1,18 @@
 local teameliminationvalidate = {
 }
 
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
+
 function teameliminationvalidate:ValidateLevel()
 	-- new feature to help mission editor validate levels
 
 	local ErrorsFound = {}
 		
+	----- carry out generic validation functions using new function library
+	ErrorsFound = validationfunctions:PerformGenericValidations()
+	
 	----- phase 1 check insertion points and player starts
 
 	local FoundTeam1Use = false

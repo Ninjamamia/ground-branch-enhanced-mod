@@ -11,6 +11,9 @@ local defusevalidate = {
 
 }
 
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
 
 function defusevalidate:StripNumbersFromName(ObjectName)
 	while string.len(ObjectName)>1 and ((string.sub(ObjectName, -1, -1)>='0' and string.sub(ObjectName, -1, -1)<='9') or string.sub(ObjectName, -1, -1)=='_') do

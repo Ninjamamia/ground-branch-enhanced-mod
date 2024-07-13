@@ -11,6 +11,9 @@ local terroristhuntvalidate = {
 
 }
 
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
 
 function terroristhuntvalidate:StripNumbersFromName(ObjectName)
 	while string.len(ObjectName)>1 and ((string.sub(ObjectName, -1, -1)>='0' and string.sub(ObjectName, -1, -1)<='9') or string.sub(ObjectName, -1, -1)=='_') do
@@ -25,6 +28,9 @@ function terroristhuntvalidate:ValidateLevel()
 	-- new feature to help mission editor validate levels
 
 	local ErrorsFound = {}
+	
+	----- carry out generic validation functions using new function library
+	ErrorsFound = validationfunctions:PerformGenericValidations()
 	
 	------- phase 1 - check priority tags of the ai spawns, make sure they are allocated evenly
 

@@ -10,6 +10,9 @@ local intelretrievalvalidate = {
 	-- so overall the must-spawn AI will spawn (priority group 1) and a random mix of more important and (a few) less important AI will spawn fairly randomly
 }
 
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
 
 function intelretrievalvalidate:ActorHasTagInList( CurrentActor, TagList ) 
 	if CurrentActor == nil then

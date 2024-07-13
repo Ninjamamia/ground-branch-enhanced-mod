@@ -3,7 +3,11 @@ local DTASvalidate = {
 	GameModeObjectTypes = { 'GroundBranch.GBPlayerStart', 'GroundBranch.GBAISpawnPoint', 'GroundBranch.GBAIGuardPoint', 'GroundBranch.GBAIPatrolRoute', },
 	-- insertion points must be listed before player starts, because reasons
 	
-	}
+}
+
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
 
 function DTASvalidate:ValidateLevel()
 	-- new feature to help mission editor validate levels

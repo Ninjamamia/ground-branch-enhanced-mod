@@ -1,6 +1,10 @@
 local hostagerescuevalidate = {
 }
 
+-- new in 1034.4:
+local validationfunctions = require("ValidationFunctions")
+
+
 -- (c) BlackFoot Studios, 2023
 
 
@@ -49,6 +53,9 @@ function hostagerescuevalidate:ValidateLevel()
 	-- new feature to help mission editor validate levels
 
 	local ErrorsFound = {}
+		
+	----- carry out generic validation functions using new function library
+	ErrorsFound = validationfunctions:PerformGenericValidations()
 		
 	----- phase 1 check insertion points and player starts
 
