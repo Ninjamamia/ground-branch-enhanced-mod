@@ -69,6 +69,9 @@ local deathmatch = {
 		-- 7 = 100
 		
         -- fill in with AI if less than this value
+        -- KRIS 2024/07/24 - Bots require additional Kythera changes to function correctly.
+        -- e.g. respawn.
+        --[[
 		MinPlayers = {
 			Min = 1,
 			Max = 8,
@@ -87,6 +90,8 @@ local deathmatch = {
         	Value = 1,
             AdvancedSetting = true,
         },
+        ]]
+        -- KRIS
 	},
 	
 	---------------------------------------------
@@ -292,7 +297,10 @@ function deathmatch:OnCharacterDied(Character, CharacterController, KillerContro
 		if KillerPlayerState ~= nil then
 			-- no points for killing yourself
 			local KillerIsABot = player.IsABot(KillerPlayerState)
-			if CharacterController ~= KillerController and (not KillerIsABot or self.Settings.BotsCanScore.Value == 1) then
+	        -- KRIS 2024/07/24 - Bots require additional Kythera changes to function correctly.
+			-- if CharacterController ~= KillerController and (not KillerIsABot or self.Settings.BotsCanScore.Value == 1) then
+			if CharacterController ~= KillerController then
+			-- KRIS
                 player.AwardPlayerScore( KillerPlayerState, "Kills", 1 )		
     
                 if self.Settings.FragLimit.Value ~= 0 then
@@ -382,12 +390,14 @@ function deathmatch:GetBestFraggers()
 	local BestFraggers = {}
 	local Players
 
-	if self.Settings.BotsCanScore.Value==1 then
-		Players = gamemode.GetPlayerList(255, false)
-	else
+	-- KRIS 2024/07/24 - Bots require additional Kythera changes to function correctly.
+	-- if self.Settings.BotsCanScore.Value==1 then
+	-- 	Players = gamemode.GetPlayerList(255, false)
+	-- else
 		-- exclude bots
 		Players = gamemode.GetPlayerList(255, true)
-	end
+	-- end
+	-- KRIS
 	
 	-- first find best score
 	for _, PlayerState in ipairs(Players) do

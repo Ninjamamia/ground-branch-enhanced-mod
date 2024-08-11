@@ -1685,6 +1685,26 @@ function hostagerescue:SelectHostage()
 			SelectedPlayer = AttackerPlayers[1]
 		elseif #VolunteerPlayers == 1 then
 			SelectedPlayer = VolunteerPlayers[1]
+		elseif #VolunteerPlayers > 1 then
+			for i = 1, #self.PastHostages do
+				-- if only one player remains in the list, they have to be the hostage
+				if #VolunteerPlayers == 1 then
+					SelectedPlayer = VolunteerPlayers[1]
+					break
+				end
+				
+				for j = 1, #VolunteerPlayers do
+					-- find past hostage in current list of players, and remove it
+					if self.PastHostages[i] == VolunteerPlayers[j] then	
+						table.remove(VolunteerPlayers, j)
+						break
+					end
+				end
+			end
+
+			if SelectedPlayer == nil then
+				SelectedPlayer = VolunteerPlayers[ umath.random(#VolunteerPlayers) ]
+			end
 		else
 			for i = 1, #self.PastHostages do
 				-- if only one player remains in the list, they have to be the hostage

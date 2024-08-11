@@ -1095,11 +1095,11 @@ function intelretrieval:ActivateBumRush()
 
 			if self.BumRushLeaveSquadsAlone[AISquadID] == nil and vector.SizeSq(AILocation - ExtractionPointLocation) < self.BumRushInRangeDistanceSq then
 				self.BumRushLeaveSquadsAlone[AISquadID] = true
+			else
+				--ai.SetSquadOrdersForAIController(AIController, 'Search')
+				-- overkill as it will do this multiple times per squad, but let's keep it simple
+				-- get this done first so that AI will immediately accept search destination
 			end
-
-			ai.SetSquadOrdersForAIController(AIController, 'Search')
-			-- overkill as it will do this multiple times per squad, but let's keep it simple
-			-- get this done first so that AI will immediately accept search destination
 		end
 		
 		timer.Set("UpdateBumRushTargets", self, self.UpdateBumRushTargetsTimer, self.BumRushTargetUpdateTime, true)
@@ -1127,9 +1127,7 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 	
 	local TempExtractionPointLocation = ai.ProjectPointToNavigation(ExtractionPointLocation, { x=500.0, y=500.0, z=1000.0 } )
 	if TempExtractionPointLocation ~= nil then
-		--print("Old extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
 		ExtractionPointLocation = TempExtractionPointLocation
-		--print("Next extract loc = (" .. ExtractionPointLocation.x .. ", " .. ExtractionPointLocation.y .. ", " .. ExtractionPointLocation.z .. ")")
 	else
 		print("Could not project extraction zone to navmesh")
 	end
@@ -1165,6 +1163,23 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 			local RandomPlayer = PlayersWithLives[math.random(#PlayersWithLives)]
 			local PlayerCharacter = player.GetCharacter(RandomPlayer)
 			TargetLocation = actor.GetLocation(PlayerCharacter)
+			
+			-- little fix in 1034.5 for search now breaking if starting point not projected to mesh
+			if TargetLocation ~= nil then
+				local TempTargetLocation = ai.ProjectPointToNavigation(TargetLocation, { x=100.0, y=100.0, z=150.0 } )
+				if TempTargetLocation ~= nil then
+					TargetLocation = TempTargetLocation
+				else
+					print("Could not project player location to navmesh -- falling back to extraction point location")
+					TargetLocation = ExtractionPointLocation
+				end		
+				
+				-- location, radius, duration
+				--gameplaystatics.DisplayDebugSphere(TargetLocation, 50.0, 10.0)
+			else
+				print("TargetLocation was nil")
+			end
+			
 			print("Setting target to player " .. player.GetName(RandomPlayer) .. " for squad " .. AISquadID .. " including " .. #AIControllerList .. " AI")
 		else
 			TargetLocation = ExtractionPointLocation
@@ -1174,8 +1189,9 @@ function intelretrieval:UpdateBumRushTargetsTimer()
 
 		if TargetLocation ~= nil then
 
-
 			for _, AIController in ipairs(AIControllerList) do
+				-- this needs to be here as well as in ActivateBumRush() because after self.BumRushTargetUpdateTime, the state may/will revert to another
+				ai.SetSquadOrdersForAIController(AIController, 'Search')		
 
 				local SearchTargetLocation = ai.GetRandomReachablePointInRadius(TargetLocation, self.BumRushRandomWalkLength)
 				-- get a random point near the player, so the AI don't converge on a single point precisely
