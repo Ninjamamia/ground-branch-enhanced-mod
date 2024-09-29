@@ -64,10 +64,7 @@ local ParamParser            = require('gbem.util.class.param_parser')
  --- @field private _actorStateManager ActorStateManager
  --- @field private _actorGroups table
  ---
-local ActorGroupRandomiser = {
-    _actorStateManager = nil,
-    _actorGroups = {},
-}
+local ActorGroupRandomiser = {}
 
 local paramParser = ParamParser.create({
     {
@@ -212,6 +209,7 @@ local function mergeParamsInGroups(groupedActors)
         }
     end)
 end
+
 -- if result is nil return nil, else call the function
 local function ifNotNil(func) return function(result)
     if nil == result
@@ -230,6 +228,7 @@ ActorGroupRandomiser.__index = ActorGroupRandomiser
 function ActorGroupRandomiser.create(actorStateManager)
     local instance = setmetatable({}, ActorGroupRandomiser)
     instance._actorStateManager = actorStateManager
+    instance._actorGroups = {}
     logger:debug('ActorGroupRandomiser instantiated')
     return instance
 end
@@ -240,15 +239,18 @@ end
  ---
 function ActorGroupRandomiser:parse()
     local flagtag = "GroupRnd"
-    self._actorGroups = pipe({
+    pipe({
         getActors,
         ifNotNil(parseActorsParams),
         ifNotNil(groupActors),
         ifNotNil(mergeParamsInGroups),
+        ifNotNil(function(value)
+            self._actorGroups = value
+        end)
     })(flagtag)
 end
 
---- Process saved actors and set each actor state 
+--- Process saved actors and set each actor state
  ---
  --- @todo Can we split that into smaller functions?
  ---
