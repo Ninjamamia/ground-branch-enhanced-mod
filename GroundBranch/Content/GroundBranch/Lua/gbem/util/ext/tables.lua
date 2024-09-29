@@ -59,7 +59,7 @@ end
 --- Count elements in a table
 ---
 --- @param tbl table    The table to count elements from
---- @return boolean     True if the table is empty
+--- @return integer     The count result
 --- Works when #tbl would not but fairly slower
 ---
 function tables.count(tbl)
@@ -106,6 +106,8 @@ function tables.every(...)
     return tables.all(...)
 end
 
+--- @todo document
+-- short circuit when the test function returns return false
 function tables.each(tbl, testFn)
     for _, value in pairs(tbl) do
         if false == testFn(value) then

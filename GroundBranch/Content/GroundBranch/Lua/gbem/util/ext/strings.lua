@@ -10,10 +10,10 @@ function strings.startsWith(str, prefix)
     return string.sub(str, 1, #prefix) == prefix
 end
 
---- Check if the provided string end with the provided prefix
+--- Check if the provided string end with the provided suffix
  ---@param str string       String to check
- ---@param prefix string    Prefix to check
- ---@return boolean         True if str starts with prefix, false otherwise
+ ---@param suffix string    Prefix to check
+ ---@return boolean         True if str end with suffix, false otherwise
 function strings.endsWith(str, suffix)
     return string.sub(str, #suffix) == suffix
 end
