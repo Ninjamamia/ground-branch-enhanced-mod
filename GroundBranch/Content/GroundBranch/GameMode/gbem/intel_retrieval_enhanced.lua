@@ -117,7 +117,7 @@ local intelretrieval = {
 		ExfilReveal = {
 			Min = ExfilReveal.BeforeRoundStart,
 			Max = ExfilReveal.AfterCollectingIntel,
-			Value = ExfilReveal.OnRoundStart,
+			Value = ExfilReveal.BeforeRoundStart,
 			AdvancedSetting = true,
 		},
 		InsertCountMin = {
