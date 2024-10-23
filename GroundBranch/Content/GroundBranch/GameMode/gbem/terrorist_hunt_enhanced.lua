@@ -7,7 +7,7 @@ local shuffleTable = require("gbem.util.ext.tables").shuffleTable
 local filterTable = require("gbem.util.ext.tables").filter
 local sprintf = require("gbem.util.ext.strings").sprintf
 
-local logger = require('gbem.util.class.logger').create('IntelRetrievalEnhanced')
+local logger = require('gbem.util.class.logger').create('TerroristHuntEnhanced')
 local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
 
