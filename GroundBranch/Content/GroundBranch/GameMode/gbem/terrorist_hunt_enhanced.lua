@@ -10,6 +10,7 @@ local sprintf = require("gbem.util.ext.strings").sprintf
 local logger = require('gbem.util.class.logger').create('TerroristHuntEnhanced')
 local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
+local ActorNodeConnector = require("gbem.actor_state.actor_node_connector")
 
 local terroristhunt = {
 	StringTables = { "gbem/terrorist_hunt_enhanced" },
@@ -108,6 +109,18 @@ local terroristhunt = {
 			Value = 50,
 			AdvancedSetting = true,
 		},
+		OpennessPercentMin = {
+			Min = 0,
+			Max = 100,
+			Value = 25,
+			AdvancedSetting = true,
+		},
+		OpennessPercentMax = {
+			Min = 0,
+			Max = 100,
+			Value = 50,
+			AdvancedSetting = true,
+		},
 	},
 
 	---------------------------------------------
@@ -180,7 +193,8 @@ local terroristhunt = {
 	AttackersInsertionPoints = {},
 
 	actorStateManager = nil,
-	actorGroupRandomiser =nil,
+	actorGroupRandomiser = nil,
+	actorNodeConnector = nil,
 }
 
 function terroristhunt:DumbTableCopy(MyTable)
@@ -193,11 +207,26 @@ function terroristhunt:DumbTableCopy(MyTable)
 	return ReturnTable
 end
 
+function terroristhunt:GetOpennessPercent()
+	return umath.randomrange(
+		self.Settings.OpennessPercentMin.Value,
+		self.Settings.OpennessPercentMax.Value
+	)
+end
 
 function terroristhunt:PreInit()
 	self.actorStateManager = ActorStateManager.create()
 	self.actorGroupRandomiser = ActorGroupRandomiser.create(self.actorStateManager)
+	self.actorNodeConnector = ActorNodeConnector.create(self.actorStateManager)
+
+	-- -- temp: used to test the node connector
+
+	self.actorStateManager:reset()
 	self.actorGroupRandomiser:parse()
+	self.actorNodeConnector:parse()
+	self.actorNodeConnector:process(self:GetOpennessPercent())
+	self.actorGroupRandomiser:process()
+	self.actorStateManager:apply()
 
 	local AllSpawns = gameplaystatics.GetAllActorsOfClass('GroundBranch.GBAISpawnPoint')
 	local PriorityIndex = 1
@@ -313,7 +342,6 @@ function terroristhunt:PreInit()
 
 	--- find all nav blockers
 	self.AllNavBlocks = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/GameMode/BP_MissionNavBlock.BP_MissionNavBlock_C')
-
 end
 
 
@@ -401,6 +429,8 @@ function terroristhunt:OnRoundStageSet(RoundStage)
 	elseif RoundStage == "PreRoundWait" then
 		-- compute actors wanted state
 		self.actorGroupRandomiser:process()
+		self.actorNodeConnector:process(self:GetOpennessPercent())
+
 		-- apply actors wanted state
 		self.actorStateManager:apply()
 
@@ -850,10 +880,15 @@ function terroristhunt:StopEditMission()
 	-- game mode script might have been refreshed by the user so the
 	-- actorStateManager might have picked up some new managed actors
 	self.actorStateManager:reset()
+
 	-- parse actors tags
 	self.actorGroupRandomiser:parse()
+	self.actorNodeConnector:parse()
+
 	-- compute actors wanted state
 	self.actorGroupRandomiser:process()
+	self.actorNodeConnector:process(self:GetOpennessPercent())
+
 	-- apply actors wanted state
 	self.actorStateManager:apply()
 end
