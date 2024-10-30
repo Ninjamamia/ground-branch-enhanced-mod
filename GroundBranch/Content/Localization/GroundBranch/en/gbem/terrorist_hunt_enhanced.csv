@@ -1,6 +1,7 @@
 Key,SourceString,Comment
 "TerroristHunt","Terrorist Hunt",""
 "objective_EliminateOpFor","Locate and eliminate all threats in the area.","Opsboard"
+"objective_ExfiltrateBluFor","Exfiltrate to extraction point.","Opsboard"
 "summary_OpForEliminated","All threats were eliminated.","AAR"
 "summary_BluForEliminated","Your unit was wiped out.","AAR"
 "missionsetting_showremaining","Show remaining threats","Opsboard"
@@ -17,3 +18,11 @@ Key,SourceString,Comment
 "missionsetting_insertcountmax","Insert point count max", "Maximum number of insertion points"
 "missionsetting_opennesspercentmin","Openness min (%)", "Minimum openness percentage (between 0 and 100)"
 "missionsetting_opennesspercentmax","Openness max (%)", "Maximum openness percentage (between 0 and 100)"
+"missionsetting_maxcasualtiespercent","Max casualties (%)", "Maximum casualties allowed percentage (between 0 and 100)"
+"missionsetting_onmaxcasualties","On max casualties reached",
+"missionsetting_onmaxcasualties_0","Fail mission",
+"missionsetting_onmaxcasualties_1","Activate exfil",
+"missionsetting_exfilreveal","Extract point reveal",
+"missionsetting_exfilreveal_0","Before round start",
+"missionsetting_exfilreveal_1","On round start",
+"missionsetting_exfilreveal_2","On exfil activated",

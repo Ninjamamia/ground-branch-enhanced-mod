@@ -11,7 +11,18 @@ local logger = require('gbem.util.class.logger').create('TerroristHuntEnhanced')
 local ActorStateManager = require("gbem.actor_state.actor_state_manager")
 local ActorGroupRandomiser = require("gbem.actor_state.actor_group_randomiser")
 local ActorNodeConnector = require("gbem.actor_state.actor_node_connector")
+local tableContains = require('gbem.util.ext.tables').contains
+local map = require('gbem.util.ext.tables').map
 
+local OnMaxCasualties = {
+	EndRound = 0,
+	ActivateExtraction = 1,
+}
+local ExfilReveal = {
+	BeforeRoundStart = 0,
+	OnRoundStart = 1,
+	OnActivateExtraction = 2,
+}
 local terroristhunt = {
 	StringTables = { "gbem/terrorist_hunt_enhanced" },
 
@@ -97,6 +108,24 @@ local terroristhunt = {
 		--},
 		-- 0 = no bum rush mode
 		-- 1 = activate bum rush at approx 1-5 AI left
+		MaxCasualtiesPercent = {
+			Min = 0,
+			Max = 100,
+			Value = 100,
+			AdvancedSetting = true,
+		},
+		OnMaxCasualties = {
+			Min = OnMaxCasualties.EndRound,
+			Max = OnMaxCasualties.ActivateExtraction,
+			Value = ExfilReveal.EndRound,
+			AdvancedSetting = true,
+		},
+		ExfilReveal = {
+			Min = ExfilReveal.BeforeRoundStart,
+			Max = ExfilReveal. OnActivateExtraction,
+			Value = ExfilReveal.OnActivateExtraction,
+			AdvancedSetting = true,
+		},
 		InsertCountMin = {
 			Min = 1,
 			Max = 50,
@@ -192,6 +221,12 @@ local terroristhunt = {
 
 	AttackersInsertionPoints = {},
 
+	MinPlayersAlive = 1,
+	ExtractionPoints = {},
+	ExtractionPointMarkers = {},
+	ExtractionPointIndex = nil,
+	ExtractionActivated = false,
+
 	actorStateManager = nil,
 	actorGroupRandomiser = nil,
 	actorNodeConnector = nil,
@@ -212,6 +247,46 @@ function terroristhunt:GetOpennessPercent()
 		self.Settings.OpennessPercentMin.Value,
 		self.Settings.OpennessPercentMax.Value
 	)
+end
+
+function terroristhunt:GetModifierTextForObjective( TaggedActor )
+	-- consider moving to gamemode
+
+	if actor.HasTag( TaggedActor, "AddUpArrow") then
+		return "(U)"
+	elseif actor.HasTag( TaggedActor, "AddDownArrow") then
+		return "(D)"
+	elseif actor.HasTag( TaggedActor, "AddUpStaircase") then
+		return "(u)"
+	elseif actor.HasTag( TaggedActor, "AddDownStaircase") then
+		return "(d)"
+	elseif actor.HasTag( TaggedActor, "Add1") then
+		return "(1)"
+	elseif actor.HasTag( TaggedActor, "Add2") then
+		return "(2)"
+	elseif actor.HasTag( TaggedActor, "Add3") then
+		return "(3)"
+	elseif actor.HasTag( TaggedActor, "Add4") then
+		return "(4)"
+	elseif actor.HasTag( TaggedActor, "Add5") then
+		return "(5)"
+	elseif actor.HasTag( TaggedActor, "Add6") then
+		return "(6)"
+	elseif actor.HasTag( TaggedActor, "Add7") then
+		return "(7)"
+	elseif actor.HasTag( TaggedActor, "Add8") then
+		return "(8)"
+	elseif actor.HasTag( TaggedActor, "Add9") then
+		return "(9)"
+	elseif actor.HasTag( TaggedActor, "Add0") then
+		return "(0)"
+	elseif actor.HasTag( TaggedActor, "Add-1") then
+		return "(-)"
+	elseif actor.HasTag( TaggedActor, "Add-2") then
+		return "(=)"
+	end
+
+	return ""
 end
 
 function terroristhunt:PreInit()
@@ -238,6 +313,20 @@ function terroristhunt:PreInit()
 	-- this needs to be outside the loop
 
 	self.SpawnPriorityGroups = {}
+
+	-- prepare the extraction points
+
+	self.ExtractionPoints = gameplaystatics.GetAllActorsOfClass('/Game/GroundBranch/Props/GameMode/BP_ExtractionPoint.BP_ExtractionPoint_C')
+
+	for i = 1, #self.ExtractionPoints do
+		local Location = actor.GetLocation(self.ExtractionPoints[i])
+		local ExtractionMarkerName = self:GetModifierTextForObjective( self.ExtractionPoints[i] ) .. "EXTRACTION"
+		-- allow the possibility of down chevrons, up chevrons, level numbers, etc
+
+		self.ExtractionPointMarkers[i] = gamemode.AddObjectiveMarker(Location, self.PlayerTeams.BluFor.TeamId, ExtractionMarkerName, "Extraction", false)
+		logger:info(sprintf("marker %s: %s", i, self.ExtractionPointMarkers[i]))
+		-- NB new penultimate parameter of MarkerType ("Extraction" or "MissionLocation", at present)
+	end
 
 	-- Orders spawns by priority while allowing spawns of the same priority to be randomised.
 	for i, PriorityTag in ipairs(self.PriorityTags) do
@@ -347,8 +436,89 @@ end
 
 function terroristhunt:PostInit()
 	gamemode.AddGameObjective(self.PlayerTeams.BluFor.TeamId, "EliminateOpFor", 1)
+	gamemode.AddGameObjective(self.PlayerTeams.BluFor.TeamId, "ExfiltrateBluFor", 1)
 end
 
+function terroristhunt:RandomiseExtractLocation()
+	-- nothing to do if the map contains no extract
+	if #self.ExtractionPoints <= 0 then return end
+
+	self.ExtractionActivated = false
+
+	logger:info(sprintf("Selecting exfil location (%s possible)...", #self.ExtractionPoints))
+
+	-- deactivate all extract points and extract point markers on the map
+	for i = 1, #self.ExtractionPoints do
+		actor.SetActive(self.ExtractionPointMarkers[i], false)
+		actor.SetActive(self.ExtractionPoints[i], false)
+	end
+
+	-- select a random extract point index
+	self.ExtractionPointIndex = umath.random(#self.ExtractionPoints)
+
+	-- activate the chosen extract point marker (display on the map) if needed
+	if self.Settings.OnMaxCasualties.Value == OnMaxCasualties.ActivateExtraction
+	then
+		if gamemode.GetRoundStage() == "PreRoundWait"
+			or gamemode.GetRoundStage() == "InProgress"
+		then
+			if self.Settings.ExfilReveal.Value <= ExfilReveal.OnRoundStart then
+				self:ActivateExtractionMarker(true)
+			end
+		else
+			if self.Settings.ExfilReveal.Value < ExfilReveal.OnRoundStart then
+				self:ActivateExtractionMarker(true)
+			end
+		end
+	end
+
+
+	logger:info("-> Selected exfil location")
+end
+
+-- activate the chosen extraction point (flare goes off)
+function terroristhunt:ActivateExtractionPoint()
+	logger:info("Activating extract")
+	actor.SetActive(self.ExtractionPoints[self.ExtractionPointIndex], true)
+
+	if self.Settings.ExfilReveal.Value == ExfilReveal.OnActivateExtraction then
+		self:ActivateExtractionMarker(true)
+	end
+
+	-- inform players that exfil is available
+	gamemode.BroadcastGameMessage("To all elements, mission aborted. Regroup on marked extraction point for exfil.", "Lower", 15.0)
+end
+
+-- activate the chosen extraction marker (display on the map)
+function terroristhunt:ActivateExtractionMarker(isActive)
+	if #self.ExtractionPoints > 0 then
+		actor.SetActive(self.ExtractionPointMarkers[self.ExtractionPointIndex], isActive)
+	end
+end
+
+function terroristhunt:OnGameTriggerBeginOverlap(GameTrigger, Character)
+	timer.Set("CheckBluForExfil", self, self.CheckBluForExfilTimer, 1.0, false)
+end
+
+function terroristhunt:CheckBluForExfilTimer()
+	local livePlayers = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
+	local liveCharacters = map(livePlayers, function(livePlayer) return player.GetCharacter(livePlayer) end)
+	local extractedCharacters = actor.GetOverlaps(self.ExtractionPoints[self.ExtractionPointIndex], 'GroundBranch.GBCharacter')
+
+	for _, liveCharacter in ipairs(liveCharacters) do
+		-- May have lives, but no character, alive or otherwise.
+		if liveCharacter == nil then return end
+		-- as soon as we find a player not in the Overlaps table we can short circuit
+		if not tableContains(extractedCharacters, liveCharacter) then return end
+	end
+
+	-- we only reach this point if all LiveCharacters are contained into extractedCharacters
+	timer.Clear("CheckBluForExfil")
+	gamemode.AddGameStat("Result=Team1")
+	gamemode.AddGameStat("Summary=BluForExfiltrated")
+	gamemode.AddGameStat("CompleteObjectives=ExfiltrateBluFor")
+	gamemode.SetRoundStage("PostRoundWait")
+end
 
 function terroristhunt:PlayerInsertionPointChanged(PlayerState, InsertionPoint)
 	if InsertionPoint == nil then
@@ -418,7 +588,7 @@ function terroristhunt:OnRoundStageSet(RoundStage)
 		-- randomise insertion points location
 		if self.CompletedARound then
 			self.CompletedARound = false
-			self:RandomiseInsertLocation()
+			self:RandomiseObjectives()
 		end
 
 		-- reset nav blocks
@@ -434,6 +604,18 @@ function terroristhunt:OnRoundStageSet(RoundStage)
 		-- apply actors wanted state
 		self.actorStateManager:apply()
 
+		-- compute the minimun number of players we want to stay alive before the mission is aborted
+		local players = gamemode.GetPlayerList(self.PlayerTeams.BluFor.TeamId, false)
+		local maxCasualties = #players * self.Settings.MaxCasualtiesPercent.Value / 100
+		self.MinPlayersAlive = math.max(1, math.ceil(#players - maxCasualties))
+
+		logger:info(sprintf('Max maxCasualties set to %s%%, min players alive set to %s', maxCasualties, self.MinPlayersAlive))
+
+		-- activate the chosen extract point marker on the map if settings ask for it
+		if self.Settings.ExfilReveal.Value == ExfilReveal.OnRoundStart then
+			self:ActivateExtractionMarker(true)
+		end
+
 		self:SpawnOpFor()
 
 		gamemode.SetDefaultRoundStageTime("InProgress", self.Settings.RoundTime.Value)
@@ -447,10 +629,10 @@ end
 function terroristhunt:RandomiseInsertLocation()
 	-- randomly enable the desired number of insertion points
 	logger:info(sprintf(
-		'Selecting between %s and %s insert locations...',
+		'Selecting %s to %s insert locations (%s possible)...',
 		self.Settings.InsertCountMin.Value,
-		self.Settings.InsertCountMax.Value
-
+		self.Settings.InsertCountMax.Value,
+		#self.AttackersInsertionPoints
 	))
 
 	local shuffledInsertionPoints = shuffleTable(self.AttackersInsertionPoints)
@@ -479,7 +661,7 @@ function terroristhunt:RandomiseInsertLocation()
 
 	end
 
-	logger:info(sprintf('-> Selected %s insert location(s)', selectedInsertionPointCount))
+	logger:info(sprintf('-> Selected %s insert locations', selectedInsertionPointCount))
 end
 
 function terroristhunt:PickHotspot()
@@ -678,13 +860,13 @@ function terroristhunt:OnCharacterDied(Character, CharacterController, KillerCon
 			else
 				player.SetLives(CharacterController, player.GetLives(CharacterController) - 1)
 
-				local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
-				if #PlayersWithLives == 0 then
-					self:CheckBluForCountTimer()
-					-- call immediately because round is about to end and nothing more can happen
-				else
-					timer.Set("CheckBluForCount", self, self.CheckBluForCountTimer, 1.0, false)
-				end
+				self:CheckBluForCountTimer()
+
+				-- weird logic copied from the vanilla mode
+				-- lines below should not be necessary... requires testing
+				-- if not self:CheckBluForCountTimer() then
+					-- timer.Set("CheckBluForCount", self, self.CheckBluForCountTimer, 1.0, false)
+				-- end
 
 			end
 		end
@@ -700,7 +882,7 @@ function terroristhunt:CheckOpForCountTimer()
 		timer.Clear("ShowRemaining")
 		gamemode.AddGameStat("Result=Team1")
 		gamemode.AddGameStat("Summary=OpForEliminated")
-		gamemode.AddGameStat("CompleteObjectives=EliminateOpFor")
+		gamemode.AddGameStat("CompleteObjectives=EliminateOpFor,ExfiltrateBluFor")
 		gamemode.SetRoundStage("PostRoundWait")
 		return
 	elseif self.Settings.ShowRemaining.Value > 0 and #OpForControllers <= self.Settings.ShowRemaining.Value then
@@ -750,7 +932,7 @@ function terroristhunt:UpdateBumRushTargetsTimer()
 	local OpForControllers = ai.GetControllers('GroundBranch.GBAIController', self.OpForTeamTag, 255, 255)
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
 
-	if OpForControllers == nil or #OpForControllers == 0 or PlayersWithLives == nil or #PlayersWithLives == 0 then
+	if OpForControllers == nil or #OpForControllers == 0 or PlayersWithLives == nil or #PlayersWithLives < self.MinPlayersAlive then
 		return
 	end
 
@@ -796,13 +978,36 @@ end
 
 function terroristhunt:CheckBluForCountTimer()
 	local PlayersWithLives = gamemode.GetPlayerListByLives(self.PlayerTeams.BluFor.TeamId, 1, false)
-	if #PlayersWithLives == 0 then
+	if #PlayersWithLives >= self.MinPlayersAlive then
+		logger:info("livePlayers still > MinPlayersAlive, do nothing")
+
+	elseif #PlayersWithLives > 0 then
+
+		if self.Settings.OnMaxCasualties.Value == OnMaxCasualties.ActivateExtraction
+			and not self.ExtractionActivated
+			and #self.ExtractionPoints > 0
+		then
+			self.ExtractionActivated = true
+			logger:info("livePlayers < MinPlayersAlive, activate extract")
+			self:ActivateExtractionPoint()
+		else
+			if not self.ExtractionActivated and #self.ExtractionPoints > 0 then
+				logger:warn("'OnMaxCasualties' set to 'ActivateExtraction', but no extract points found: Falling back to 'EndGame' behaviour")
+			end
+			logger:info("Ending round: too many casualties")
+			gamemode.AddGameStat("Result=None")
+			gamemode.AddGameStat("Summary=BluForTooManyCasualties")
+			gamemode.SetRoundStage("PostRoundWait")
+		end
+
+	else
+		logger:info("livePlayers < MinPlayersAlive, end game (all players dead)")
 		gamemode.AddGameStat("Result=None")
 		gamemode.AddGameStat("Summary=BluForEliminated")
 		gamemode.SetRoundStage("PostRoundWait")
+		return true
 	end
 end
-
 
 function terroristhunt:ShouldCheckForTeamKills()
 	if gamemode.GetRoundStage() == "InProgress" then
@@ -824,22 +1029,40 @@ function terroristhunt:OnMissionSettingsChanged(ChangedSettingsTable)
 	-- NB this may be called before some things are initialised
 	-- need to avoid infinite loops by setting new mission settings
 
-    if ChangedSettingsTable['UseAIHotspots'] ~= nil then
-        print("OnMissionSettingsChanged(): UseAIHotspots value changed.")
+	-- don't do anything when settings change during the round
+	if gamemode.GetRoundStage() == "PreRoundWait" or
+	   gamemode.GetRoundStage() == "InProgress" then
+		return
+	end
+
+	if ChangedSettingsTable['UseAIHotspots'] ~= nil then
+		print("OnMissionSettingsChanged(): UseAIHotspots value changed.")
 		self:PickHotspot()
 		-- force update
 	end
-    if ChangedSettingsTable['InsertCountMax'] ~= nil or
-       ChangedSettingsTable['InsertCountMin'] ~= nil then
+
+	if ChangedSettingsTable['InsertCountMax'] ~= nil or
+	   ChangedSettingsTable['InsertCountMin'] ~= nil then
 		self:RandomiseInsertLocation()
+	end
+
+	if ChangedSettingsTable['ExfilReveal'] ~= nil then
+		self:RandomiseExtractLocation()
+	end
+
+	if ChangedSettingsTable['ExfilReveal'] == nil and
+	   ChangedSettingsTable['OnMaxCasualties'] ~= nil then
+		if self.Settings.OnMaxCasualties.Value == OnMaxCasualties.ActivateExtraction then
+			self:ActivateExtractionMarker(self.Settings.ExfilReveal.Value < ExfilReveal.OnRoundStart)
+		end
 	end
 end
 
 function terroristhunt:RandomiseObjectives()
-		self:PickHotspot()
-		self:RandomiseInsertLocation()
+	self:PickHotspot()
+	self:RandomiseInsertLocation()
+	self:RandomiseExtractLocation()
 end
-
 
 function terroristhunt:OnRandomiseObjectives()
 	-- new in 1034 - new randomise objective button is clicked, so re-roll search locations and so on
@@ -854,6 +1077,8 @@ function terroristhunt:CanRandomiseObjectives()
 		-- all insertion points are enabled
 		and self.Settings.InsertCountMin.Value == self.Settings.InsertCountMax.Value
 		and self.Settings.InsertCountMin.Value == #self.AttackersInsertionPoints
+		-- there's only one extraction point available
+		and #self.ExtractionPoints == 1
 	then
 		return false
 	end
