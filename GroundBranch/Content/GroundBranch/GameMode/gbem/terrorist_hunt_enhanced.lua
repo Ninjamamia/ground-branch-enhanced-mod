@@ -1,8 +1,3 @@
-package.path =
-	"../../../GroundBranch/Content/GroundBranch/Lua/?.lua;" ..
-	"../../../GroundBranch/Content/GroundBranch/GameMode/?.lua;" ..
-	package.path
-
 local shuffleTable = require("gbem.util.ext.tables").shuffleTable
 local filterTable = require("gbem.util.ext.tables").filter
 local sprintf = require("gbem.util.ext.strings").sprintf
