@@ -12,8 +12,10 @@ added features:
 
 **Actor group randomiser**
 
-Allows to control actors visibility using specific tags in the mission editor. See [_Actor group
-randomiser tags_](#actorgrouprandomiser) section below.
+Tag system to allow the mission creator to control the probability of an actor to be present or not
+for each mission. Think about barricaded windows, trees, obstacles...
+
+See [_Actor group randomiser_](#actorgrouprandomiser) section below.
 
 **Randomise enemy count**
 
@@ -29,14 +31,18 @@ actual value will be randomly selected between min and max.
 
 Both defaults to `50` so all possible insertion points are used, reproducing vanilla behavior.
 
-## Intel retrieval features
-
 **Delay extract point reveal**
 
 Mission setting for when to actually reveal the extract point on the map, with the following
 possibilities: before round start, on round start, after collecting intel.  
 
-Defaults to `before round start`, reproducing vanilla behavior.
+Defaults to `before round start`, reproducing vanilla behavior, for the intel retrieval game mode.
+
+Defaults to `on activate extraction` for the terrorist hunt game mode. Only used in conjunction with
+other settings, see [_Terrorist hunt features - On max casualties_](#terroristhuntfeatures) section
+below.
+
+## Intel retrieval features
 
 **Multiple laptops**
 
@@ -44,6 +50,30 @@ Two mission settings to control the minimum and maximum number of laptops to pla
 actual value will be randomly selected between min and max, only one laptop will contain the intel.
 
 Both defaults to `1` to only have a single laptop, reproducing vanilla behavior.
+
+## Terrorist hunt features
+
+**Actor node connector**
+
+Tag system to allow the mission creator to physically separate areas (called nodes) of the map with
+actors that will be randomly present or not on each mission. The system will ensure that all area
+are reachable.
+
+See [_Actor node connector_](#actornodeconnector) section below.
+
+**Max casualties**
+
+Mission setting to control the maximum percentage of friendly players allowed to be killed by the
+enemy before the mission is aborted.
+
+Defaults to `100`%, reproducing vanilla behavior.
+
+**On max casualties**
+
+Mission setting to control what happens when the max casualties threshold is reached, with the
+following possibilities: end round, activate extraction.
+
+Default to `end round`, reproducing vanilla behavior.
 
 # Usage
 
@@ -155,6 +185,25 @@ Building on our previous example, this is what this should look like:
 - mesh #1: `GroupRnd_TheRoom_ctrl_0`  
 - mesh #2: `GroupRnd_TheRoom_0`  
 - mesh #3: `GroupRnd_TheRoom_1`  
+
+## Actor node connector
+
+[_Work in progress: feature is still experimental and subject to change._] 
+
+The actor node connector is an attempt at providing a better way than the actor node randomiser to
+solve the problem having meshes blocking all possible path to a specific place and make sure at
+least one path is available during the game.
+
+It is linked to two specific mission settings (_openness_ min and max) to control the percentage of
+actors we should hide.
+
+If you set up 3 meshes to block access between the areas 'guesthouse' and 'alleyway', all of them
+need to have the same tags:
+```
+GraphConnector
+node1=guesthouse
+node2=alleyway
+```
 
 ## Install
 
