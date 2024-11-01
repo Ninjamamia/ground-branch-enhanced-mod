@@ -13,6 +13,7 @@
 /GroundBranch/Content/GroundBranch/GameMode/Deathmatch.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/DeathmatchValidate.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/Defuse.lua export-ignore
+/GroundBranch/Content/GroundBranch/GameMode/DefuseValidate.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/HostageRescue.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/HostageRescueValidate.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/IntelRetrieval.lua export-ignore
@@ -25,6 +26,8 @@
 /GroundBranch/Content/GroundBranch/GameMode/Training.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/Uplink.lua export-ignore
 /GroundBranch/Content/GroundBranch/GameMode/UplinkValidate.lua export-ignore
+/GroundBranch/Content/GroundBranch/GameMode/ValidationFunctions.lua export-ignore
+/GroundBranch/Content/GroundBranch/GameMode/ValidationFunctions.uasset export-ignore
 
 /GroundBranch/Content/GroundBranch/Lua/Bomb.lua export-ignore
 /GroundBranch/Content/GroundBranch/Lua/Flag.lua export-ignore
